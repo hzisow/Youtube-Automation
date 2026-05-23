@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agency Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AD</div>
+        <div class="brand-text">
+          <strong>Agency</strong>
+          <span>Dashboard</span>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="dashboard"><span class="ni-icon">▥</span> Dashboard</button>
+        <button class="nav-item" data-tab="clients"><span class="ni-icon">★</span> Clients</button>
+        <button class="nav-item" data-tab="leads"><span class="ni-icon">☎</span> Leads to Call</button>
+        <button class="nav-item" data-tab="scripts"><span class="ni-icon">✎</span> Call Script Generator</button>
+        <button class="nav-item" data-tab="messages"><span class="ni-icon">✉</span> Email &amp; Text Generator</button>
+        <button class="nav-item" data-tab="demo"><span class="ni-icon">▤</span> Website Demo Builder</button>
+        <button class="nav-item" data-tab="settings"><span class="ni-icon">⚙</span> Settings &amp; Backup</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="sideStats"></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section id="tab-dashboard" class="tab active"></section>
+      <section id="tab-clients" class="tab"></section>
+      <section id="tab-leads" class="tab"></section>
+      <section id="tab-scripts" class="tab"></section>
+      <section id="tab-messages" class="tab"></section>
+      <section id="tab-demo" class="tab"></section>
+      <section id="tab-settings" class="tab"></section>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

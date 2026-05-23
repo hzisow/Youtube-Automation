@@ -1,0 +1,36 @@
+{
+  "name": "agency-dashboard",
+  "version": "1.0.0",
+  "description": "Local CRM + outreach toolkit for a local web/marketing agency",
+  "main": "main.js",
+  "author": "Agency Dashboard",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.local.agencydashboard",
+    "productName": "Agency Dashboard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "dir"
+      ],
+      "identity": null,
+      "category": "public.app-category.business"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}
