@@ -869,6 +869,10 @@ function renderSideStats() {
 }
 
 /* ---------- boot ---------- */
+(function () {
+  var v = document.getElementById('verStamp');
+  if (v) { v.textContent = 'BUILD 3 · ✓ running'; v.style.color = '#22c55e'; }
+})();
 renderSideStats();
 showTab('dashboard');
 if (!storageWorks) {
