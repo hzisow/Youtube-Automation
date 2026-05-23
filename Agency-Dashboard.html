@@ -474,6 +474,16 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
+      <h2>Add leads from a Google Maps CSV <span class="count">— keeps only the ones with no website</span></h2>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Export a Google Maps search (e.g. “landscapers near Newton”) as a CSV, then upload it here. The app keeps only businesses <b>without a website</b> and adds them to your Leads — skipping any duplicates and your existing list.</p>
+      <div class="btn-row">
+        <button class="btn primary" onclick="document.getElementById('csvFile').click()">Upload CSV</button>
+        <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" onchange="importLeadsCSV(this)">
+      </div>
+      <div id="csvResult" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+    </div>
+
+    <div class="panel">
       <h2>Follow-ups due <span class="count">— who to reach out to</span></h2>
       <table><thead><tr><th>Client</th><th>Recommendation</th><th></th></tr></thead><tbody>${followupRows}</tbody></table>
     </div>
@@ -661,6 +671,102 @@ function convertLead(id) {
     data.leads = data.leads.filter((x) => x.id !== id);
     save(); toast('Converted to client!'); showTab('clients');
   });
+}
+
+/* ---------- CSV lead import (Google Maps export or generic CSV) ---------- */
+function parseCSVText(text) {
+  const rows = []; let row = []; let cur = ''; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else {
+      if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c === '\r') { /* skip */ }
+      else cur += c;
+    }
+  }
+  if (cur.length || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+function detectCols(header) {
+  const h = header.map((x) => (x || '').trim().toLowerCase());
+  function find(pred, fallback) {
+    for (let i = 0; i < h.length; i++) { if (pred(h[i])) return i; }
+    return fallback;
+  }
+  return {
+    name: find((s) => s === 'qbf1pd' || s.indexOf('name') >= 0 || s.indexOf('business') >= 0 || s.indexOf('title') >= 0, 1),
+    website: find((s) => s === 'lcr4fd href' || s === 'website' || (s.indexOf('website') >= 0 && s.indexOf('href') >= 0) || s === 'site' || s === 'url', 11),
+    phone: find((s) => s === 'usdlk' || s.indexOf('phone') >= 0 || s.indexOf('tel') >= 0, 10),
+    niche: find((s) => s === 'w4efsd' || s.indexOf('category') >= 0 || s.indexOf('type') >= 0 || s.indexOf('niche') >= 0, 4),
+    address: find((s) => s === 'w4efsd 3' || s.indexOf('address') >= 0 || s.indexOf('street') >= 0, 6),
+    rating: find((s) => s === 'mw4etd' || s.indexOf('rating') >= 0 || s.indexOf('stars') >= 0, 2),
+    reviews: find((s) => s === 'uy7f9' || s.indexOf('review') >= 0, 3)
+  };
+}
+
+function extractLeadsFromCSV(text) {
+  const rows = parseCSVText(text);
+  if (rows.length < 2) return { leads: [], hadWebsite: 0, total: 0 };
+  const cols = detectCols(rows[0]);
+  const out = []; let hadWebsite = 0; let total = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r[cols.name] || '').trim();
+    if (!name) continue;
+    total++;
+    const website = (r[cols.website] || '').trim();
+    if (website) { hadWebsite++; continue; }
+    const rating = (r[cols.rating] || '').trim();
+    const reviews = (r[cols.reviews] || '').trim();
+    out.push({
+      id: uid(),
+      business: name,
+      niche: (r[cols.niche] || '').trim(),
+      phone: (r[cols.phone] || '').trim(),
+      address: (r[cols.address] || '').trim(),
+      website: 'No',
+      status: 'New',
+      lastTouch: '',
+      notes: (rating ? rating + '★ ' + reviews : '').trim()
+    });
+  }
+  return { leads: out, hadWebsite: hadWebsite, total: total };
+}
+
+function importLeadsCSV(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function () {
+    let res;
+    try { res = extractLeadsFromCSV(String(reader.result)); }
+    catch (e) { alert('Could not read that CSV file.'); return; }
+    if (!res.total) { alert('No businesses found in that CSV. Make sure it has a header row and a business-name column.'); return; }
+    const seen = {};
+    data.leads.forEach((l) => { seen[(l.business || '').trim().toLowerCase()] = true; });
+    let added = 0, dupes = 0;
+    res.leads.forEach((l) => {
+      const key = l.business.trim().toLowerCase();
+      if (seen[key]) { dupes++; return; }
+      seen[key] = true;
+      data.leads.push(l); added++;
+    });
+    save();
+    renderDashboard();
+    const msg = 'Added ' + added + ' new lead' + (added === 1 ? '' : 's') +
+      (dupes ? ', skipped ' + dupes + ' already in your list' : '') +
+      '. (' + res.hadWebsite + ' had websites and were skipped.)';
+    const el = document.getElementById('csvResult');
+    if (el) { el.textContent = msg; el.style.color = '#16a34a'; }
+    toast(added + ' leads added');
+  };
+  reader.readAsText(file);
 }
 
 /* ============================================================
