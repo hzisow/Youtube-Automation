@@ -323,10 +323,7 @@ function daysSince(dateStr) {
   const now = new Date(todayISO() + 'T00:00:00');
   return Math.round((now - then) / 86400000);
 }
-function money(n) { return '
-</body>
-</html>
- + (Number(n) || 0).toLocaleString(); }
+function money(n) { return '$' + (Number(n) || 0).toLocaleString(); }
 
 function toast(msg) {
   const t = document.getElementById('toast');
