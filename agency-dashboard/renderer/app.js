@@ -5,6 +5,26 @@
 
 const STORE_KEY = 'agencyData_v1';
 
+/* Show any load-time error on screen instead of failing silently. */
+window.addEventListener('error', function (e) {
+  var b = document.getElementById('fatalBanner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'fatalBanner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:10px 16px;font:13px -apple-system,sans-serif;z-index:9999';
+    (document.body || document.documentElement).appendChild(b);
+  }
+  b.textContent = 'App error: ' + (e.message || e.error || 'unknown') + '  —  copy this and tell Claude.';
+});
+
+/* ---------- Safe storage (keeps working even if localStorage is blocked,
+   which Safari does when you open a file directly) ---------- */
+var memStore = {};
+var storageWorks = true;
+function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { storageWorks = false; return (k in memStore) ? memStore[k] : null; } }
+function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageWorks = false; memStore[k] = v; } }
+function safeRemove(k) { try { localStorage.removeItem(k); } catch (e) { delete memStore[k]; } }
+
 /* ---------- Seed leads (your Newton, MA starter list) ---------- */
 function seedLeads() {
   const raw = [
@@ -36,7 +56,7 @@ function defaultSettings() {
 let data = load();
 
 function load() {
-  const raw = localStorage.getItem(STORE_KEY);
+  const raw = safeGet(STORE_KEY);
   if (raw) {
     try {
       const p = JSON.parse(raw);
@@ -47,12 +67,12 @@ function load() {
     } catch (e) { /* fall through to fresh */ }
   }
   const fresh = { clients: [], leads: seedLeads(), settings: defaultSettings() };
-  localStorage.setItem(STORE_KEY, JSON.stringify(fresh));
+  safeSet(STORE_KEY, JSON.stringify(fresh));
   return fresh;
 }
 
 function save() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  safeSet(STORE_KEY, JSON.stringify(data));
   renderSideStats();
 }
 
@@ -834,7 +854,7 @@ function importData(input) {
 }
 function resetData() {
   if (!confirm('Erase ALL clients, leads and settings? Export a backup first if unsure.')) return;
-  localStorage.removeItem(STORE_KEY);
+  safeRemove(STORE_KEY);
   data = load(); save(); toast('Data reset'); showTab('dashboard');
 }
 
@@ -851,3 +871,12 @@ function renderSideStats() {
 /* ---------- boot ---------- */
 renderSideStats();
 showTab('dashboard');
+if (!storageWorks) {
+  setTimeout(function () {
+    var n = document.createElement('div');
+    n.style.cssText = 'position:fixed;bottom:16px;right:16px;max-width:320px;background:#b45309;color:#fff;padding:12px 14px;border-radius:10px;font:12.5px -apple-system,sans-serif;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.2)';
+    n.textContent = 'Heads up: this browser is blocking saved storage for opened files, so your data won’t persist after closing. Open this file in Chrome (or use the installed app) for saving. Use Settings → Export to back up.';
+    document.body.appendChild(n);
+    setTimeout(function () { n.style.transition = 'opacity .4s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 500); }, 9000);
+  }, 600);
+}
