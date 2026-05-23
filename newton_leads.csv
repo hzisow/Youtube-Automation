@@ -1,0 +1,27 @@
+Business,Niche,Address,Phone,Has Website?,Priority,Demo Built?,Called?,Walkthrough Booked,Status,Notes
+Salvi's Barber Shop,Barbershop,"140 Adams St, Newton 02458",,Likely NO (Booksy only),HIGH,No,No,,New,Appears only via Booksy booking - strong lead
+Neighborhood Barbers,Barbershop,"286 Centre St, Newton 02458",,Likely NO (Squire only),HIGH,No,No,,New,Booking via Squire - verify no own site
+Centre Barbershop Hairstyling,Barbershop,"212 Sumner St, Newton 02459",,Likely NO (Fresha only),HIGH,No,No,,New,Fresha listing - strong lead
+Joe's Barber Shop,Barbershop,Newton (verify),,Check,MEDIUM,No,No,,New,Verify address + website on Maps
+Mike's Classic Barber Shop,Barbershop,Newton (verify),,Check,MEDIUM,No,No,,New,Verify address + website on Maps
+The Barber Shop On Comm Av,Barbershop,Comm Ave Newton (verify),,Check,MEDIUM,No,No,,New,Verify address + website on Maps
+Nail It,Nail Salon,"325 Walnut St, Newton 02460",,Likely NO (Fresha only),HIGH,No,No,,New,Fresha listing - strong lead
+Plush Nail & Spa,Nail Salon,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+Unique Nails,Nail Salon,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+Nail salon at 119 Elm St,Nail Salon,"119 Elm St, West Newton",,Check,MEDIUM,No,No,,New,Verify business name + website
+David Sauro Landscaping Inc.,Landscaping,Newton (since 1983),,Check,MEDIUM,No,No,,New,Established - may have site; verify
+Lynch Landscape and Tree Service,Landscaping,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+LRM Services Inc.,Landscaping,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+Noble Garden Design,Landscaping,Newton (verify),,Check,LOW,No,No,,New,Design firm - likely has site
+LAC Landscaping and Construction,Landscaping,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+Triple E Paving and Landscaping,Landscaping,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+Keith Faso Carpentry & Handyman,Handyman,Newton (verify),,Likely NO (directory only),HIGH,No,No,,New,Found via Houzz/directory - strong lead
+Leap Home Services,Handyman,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+M&M Boston Contractors,Handyman/Contractor,Greater Boston,,Check,MEDIUM,No,No,,New,Family-owned - verify website
+Lopez & Lopez Contractors Inc.,Handyman/Contractor,Newton (verify),,Check,MEDIUM,No,No,,New,Verify on Maps
+--- SKIP (already have websites) ---,,,,,,,,,,
+Sal's Barber Shop,Barbershop,"320 Walnut St, Newton 02460",,YES (salsbarbershopnewton.com),SKIP,,,,Skip,Already has own website
+V-Luxe Nails & Spa,Nail Salon,"845 Beacon St Ste A, Newton 02459",617-558-7611,YES (vluxenailsnewtoncenter.com),SKIP,,,,Skip,Already has own website
+Bella Lash Nails Spa,Nail Salon,Newton,,YES (bellalashnailspa.com),SKIP,,,,Skip,Already has own website
+Lamacchia Landscape Construction,Landscaping,Newton,,YES (lamacchialandscapeco.com),SKIP,,,,Skip,Already has own website
+Merrifield Garden and Design,Landscaping,Newton,,YES (merrifieldgardendesign.com),SKIP,,,,Skip,Already has own website
