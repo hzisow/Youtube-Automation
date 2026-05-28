@@ -66,7 +66,7 @@ def _make_video(text, card_title, time_title, slug, color, opts):
 def make_one(story, opts):
     """Render a story; returns one or more output paths (Part 1/2/... if long)."""
     color = tone.color_for(story.get("subreddit"), story["title"])
-    parts = split.split_text(story["body"], max_seconds=opts["max_seconds"])
+    parts = split.split_text(story["body"], threshold_seconds=opts["max_seconds"])
     multi = len(parts) > 1
     base = _slug(story["title"])
     outs = []
@@ -90,14 +90,14 @@ def main():
     p.add_argument("--listing", default="top", choices=["top", "hot", "new", "rising"])
     p.add_argument("--timeframe", default="week", choices=["day", "week", "month", "year", "all"])
     p.add_argument("--background", default=os.path.join(HERE, "assets", "gameplay.mp4"))
-    p.add_argument("--music", default=None)
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
     p.add_argument("--rate", default="+18%")
     p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
-    p.add_argument("--max-seconds", type=int, default=55,
-                   help="Stories longer than this are split into Part 1/Part 2/...")
+    p.add_argument("--max-seconds", type=int, default=70,
+                   help="Only split into Part 1/Part 2/... if narration exceeds this (default 70s = 1:10).")
     p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
-    p.add_argument("--no-music", action="store_true", help="Disable background music.")
+    p.add_argument("--music", dest="music", default=None,
+                   help="Optional background music file (off by default).")
     p.add_argument("--upload", action="store_true", help="Upload finished videos to YouTube.")
     p.add_argument("--privacy", default="unlisted", choices=["public", "unlisted", "private"])
     args = p.parse_args()
@@ -126,11 +126,8 @@ def main():
     if args.upload:
         import upload as uploader  # imported lazily so render-only runs need no Google libs
 
-    # Background music: explicit --music, else assets/music.mp3 if present.
+    # Background music is off by default; opt in with --music path/to/track.mp3.
     music = args.music
-    if not music and not args.no_music:
-        default_music = os.path.join(HERE, "assets", "music.mp3")
-        music = default_music if os.path.exists(default_music) else None
     ding = None if args.no_ding else sfx.ensure_ding(os.path.join(HERE, "assets", "ding.wav"))
 
     opts = {

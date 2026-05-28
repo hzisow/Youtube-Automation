@@ -52,11 +52,12 @@ style; default), `--color red` (yellow/red/orange/green/cyan/purple),
   title ends.
 - **Intro ding:** a notification chime is generated once (`assets/ding.wav`)
   and mixed at the start. Disable with `--no-ding`.
-- **Background music:** drop a track at `assets/music.mp3` and it's mixed in
-  automatically (low volume, looped). Free sources: YouTube Audio Library,
-  Pixabay Music, Incompetech. Override with `--music path` or `--no-music`.
-- **Long stories:** `auto.py` splits anything over `--max-seconds` (default 55)
-  into Part 1 / Part 2 / ... automatically.
+- **Background music:** off by default. Pass `--music path/to/track.mp3` to mix
+  one in (low volume, looped). Free sources: YouTube Audio Library, Pixabay
+  Music, Incompetech.
+- **Long stories:** `auto.py` only splits into Part 1 / Part 2 / ... when
+  narration would exceed `--max-seconds` (default 70s = 1:10). Each later part
+  opens with an ~8-second recap overlap from the previous part.
 - **Better voice (free):** try `--voice en-US-BrianNeural`,
   `en-US-ChristopherNeural`, `en-US-GuyNeural`, or `en-US-EricNeural`.
 

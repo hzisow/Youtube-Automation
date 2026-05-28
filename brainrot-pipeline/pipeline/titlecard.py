@@ -139,10 +139,14 @@ def render_card(title: str, out_path: str, username: str = "Redditstories",
     return out_path
 
 
-def title_end_time(words, title: str, pad: float = 0.4) -> float:
-    """Timestamp where the spoken title ends, so the card hides right after."""
+def title_end_time(words, title: str, pad: float = 0.4, minimum: float = 2.5) -> float:
+    """Timestamp where the spoken title ends, so the card hides right after.
+
+    Never returns less than `minimum` so the card is always visible at the start
+    even if the title is very short or word timings are missing.
+    """
     n = len([w for w in title.split() if w.strip()])
     n = min(n, len(words))
     if n == 0:
-        return 0.0
-    return words[n - 1][2] + pad
+        return minimum
+    return max(words[n - 1][2] + pad, minimum)
