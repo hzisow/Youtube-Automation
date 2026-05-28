@@ -19,7 +19,7 @@ def main() -> None:
     p.add_argument("--music", default=None, help="Optional background music file.")
     p.add_argument("--out", default=os.path.join(HERE, "output", "video.mp4"))
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
-    p.add_argument("--rate", default="+18%", help="Speech rate, e.g. +18%% for faster delivery.")
+    p.add_argument("--rate", default="+28%", help="Speech rate, e.g. +28%% for faster delivery.")
     p.add_argument("--words-per-group", type=int, default=1,
                    help="Words shown at once (1 = MrBeast one-word style).")
     p.add_argument("--title", default=None, help="Title-card text (default: first sentence).")
