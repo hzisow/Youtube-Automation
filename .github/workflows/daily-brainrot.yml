@@ -60,15 +60,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: brainrot-pipeline/requirements.txt
 
-      - name: Cache ffmpeg apt package
-        id: apt-cache
-        uses: awalsh128/cache-apt-pkgs-action@v1
-        with:
-          packages: ffmpeg
-          version: 1.0
-
-      - name: Install ffmpeg (fallback if cache miss)
-        if: steps.apt-cache.outcome == 'failure'
+      - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Install Python deps
