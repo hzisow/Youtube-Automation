@@ -55,6 +55,37 @@ python upload.py --file output/video.mp4 --title "AITA for..." \
 units against a 10,000/day default → ~6 uploads/day per project. No legitimate
 tool gives truly *unlimited* free uploads (see the chat notes).
 
+## Full automation (fetch → render → upload)
+
+`auto.py` pulls fresh stories straight from Reddit's free public JSON (no API
+key), renders them, and optionally uploads. Used posts are tracked in
+`used.json` so stories never repeat.
+
+```bash
+# Make 3 videos from r/AmItheAsshole, review locally before posting:
+python auto.py --count 3 --subreddit AmItheAsshole
+
+# Make 2 and upload them as unlisted (safest while you dial in quality):
+python auto.py --count 2 --upload --privacy unlisted
+```
+
+Other good subreddits: `tifu`, `AmItheAsshole`, `EntitledPeople`,
+`MaliciousCompliance`, `pettyrevenge`.
+
+## Hands-off scheduling (free)
+
+**Local cron** (simplest):
+```cron
+0 9 * * * cd /path/to/brainrot-pipeline && /usr/bin/python3 auto.py --count 2 --upload --privacy public
+```
+
+**GitHub Actions** (no machine running): `.github/workflows/daily-brainrot.yml`
+runs daily in the cloud for free. Read the comments at the top of that file —
+you commit a gameplay clip (or set a `GAMEPLAY_URL` secret), add your YouTube
+credentials as `CLIENT_SECRET_JSON` / `TOKEN_JSON` secrets, and flip
+`ENABLE_UPLOAD` to `true`. Without upload it still renders and saves the videos
+as downloadable build artifacts.
+
 ## Run on Google Colab (no local install)
 
 Upload this folder to Colab, then in a cell:

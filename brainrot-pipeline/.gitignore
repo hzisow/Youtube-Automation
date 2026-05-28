@@ -4,5 +4,6 @@ assets/*
 !assets/.gitkeep
 client_secret.json
 token.json
+used.json
 __pycache__/
 *.pyc

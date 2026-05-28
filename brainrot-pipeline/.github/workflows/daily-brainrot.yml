@@ -1,0 +1,71 @@
+name: Daily Brainrot Videos
+
+# Free scheduling via GitHub Actions. Runs once a day; also runnable on demand.
+# Requirements before this works:
+#   1. Commit a gameplay clip at brainrot-pipeline/assets/gameplay.mp4 (keep it small),
+#      OR set GAMEPLAY_URL secret to a direct download link.
+#   2. For uploading, add repo secrets CLIENT_SECRET_JSON and TOKEN_JSON
+#      (contents of client_secret.json and a pre-authorized token.json).
+#   3. Flip ENABLE_UPLOAD to "true" below once secrets are set.
+
+on:
+  schedule:
+    - cron: "0 14 * * *"   # 14:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "How many videos"
+        default: "2"
+
+env:
+  ENABLE_UPLOAD: "false"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: brainrot-pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Fetch gameplay clip (if URL provided)
+        if: env.GAMEPLAY_URL != ''
+        env:
+          GAMEPLAY_URL: ${{ secrets.GAMEPLAY_URL }}
+        run: curl -L "$GAMEPLAY_URL" -o assets/gameplay.mp4
+
+      - name: Restore YouTube credentials
+        if: env.ENABLE_UPLOAD == 'true'
+        env:
+          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
+          TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
+        run: |
+          printf '%s' "$CLIENT_SECRET_JSON" > client_secret.json
+          printf '%s' "$TOKEN_JSON" > token.json
+
+      - name: Generate (and optionally upload)
+        run: |
+          COUNT="${{ github.event.inputs.count || '2' }}"
+          if [ "$ENABLE_UPLOAD" = "true" ]; then
+            python auto.py --count "$COUNT" --upload --privacy public
+          else
+            python auto.py --count "$COUNT"
+          fi
+
+      - name: Upload rendered videos as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: brainrot-videos
+          path: brainrot-pipeline/output/*.mp4
+          if-no-files-found: ignore
