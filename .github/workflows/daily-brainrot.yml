@@ -28,8 +28,8 @@ on:
   workflow_dispatch:
     inputs:
       count:
-        description: "How many stories to render"
-        default: "2"
+        description: "How many stories to render (5 = safe under YouTube's ~6/day quota)"
+        default: "5"
 
 env:
   ENABLE_YOUTUBE: "true"
@@ -98,7 +98,7 @@ jobs:
 
       - name: Generate and upload
         run: |
-          COUNT="${{ github.event.inputs.count || '2' }}"
+          COUNT="${{ github.event.inputs.count || '5' }}"
           FLAGS="--count $COUNT --cache stories_cache.json"
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"

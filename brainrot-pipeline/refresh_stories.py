@@ -57,7 +57,7 @@ def main():
     reddit.save_cache(CACHE, list(by_id.values()))
     added = len(by_id) - starting
     print(f"\nDone. Cache has {len(by_id)} stories (+{added} new) at {CACHE}")
-    print("Roughly enough for ~{:d} months at 2 videos/day.".format(len(by_id) // 60))
+    print("Roughly enough for ~{:d} months at 5 videos/day.".format(len(by_id) // 150))
     print("\nNext: git add stories_cache.json && git commit -m \"chore: refresh stories\" && git push")
 
 
