@@ -43,8 +43,8 @@ def main() -> None:
 
     print("1/3 Generating voiceover + word timings (Edge-TTS)...")
     words = tts.synthesize(text, audio_path, voice=args.voice, rate=args.rate)
-    if len(words) < 3:
-        print("  edge-tts returned no word timings; falling back to Whisper...")
+    if not captions.timings_ok(words):
+        print("  edge-tts word timings unusable; falling back to Whisper...")
         words = captions.transcribe_words(audio_path)
 
     print(f"2/3 Writing captions ({len(words)} words)...")

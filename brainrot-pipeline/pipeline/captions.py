@@ -29,6 +29,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
 
+def timings_ok(words) -> bool:
+    """True if word timings look usable (enough words, spread over time)."""
+    if len(words) < 3:
+        return False
+    span = words[-1][2] - words[0][1]
+    return span > 1.5
+
+
 def _ts(seconds: float) -> str:
     cs = int(round(seconds * 100))
     h, cs = divmod(cs, 360000)

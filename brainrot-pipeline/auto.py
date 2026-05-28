@@ -52,8 +52,8 @@ def _make_video(text, card_title, time_title, slug, color, opts):
     out = os.path.join(OUT_DIR, f"{slug}.mp4")
 
     words = tts.synthesize(text, audio, voice=opts["voice"], rate=opts["rate"])
-    if len(words) < 3:
-        print("  edge-tts returned no word timings; falling back to Whisper...")
+    if not captions.timings_ok(words):
+        print("  edge-tts word timings unusable; falling back to Whisper...")
         words = captions.transcribe_words(audio)
     captions.write_ass(words, ass, color=color)
     titlecard.render_card(card_title, card, username=opts["channel"])
