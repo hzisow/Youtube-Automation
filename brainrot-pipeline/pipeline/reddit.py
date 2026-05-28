@@ -1,15 +1,23 @@
-"""Fetch story posts from Reddit's free public JSON endpoints (no API key needed).
+"""Fetch story posts from Reddit.
 
-Reddit exposes any listing as JSON by appending .json. We request a custom
-User-Agent to avoid throttling. This is the free, no-auth path; for heavy use
-switch to PRAW with a free script-app client id/secret.
+Uses Reddit's public JSON endpoints anonymously when possible. From cloud IPs
+(e.g. GitHub Actions runners), Reddit's WAF often returns 403 for anonymous
+traffic, so if the REDDIT_CLIENT_ID env var is set we fall back to authenticated
+access via Reddit's free "installed_client" OAuth grant (no user account, no
+secret needed). Create an app at https://www.reddit.com/prefs/apps -> "installed
+app" -> copy the client ID and expose it as REDDIT_CLIENT_ID.
 """
+import base64
 import html
 import json
+import os
 import re
+import urllib.parse
 import urllib.request
 
-UA = "brainrot-pipeline/1.0 (personal use)"
+# Reddit recommends a descriptive UA in their guidelines.
+UA = "linux:brainrot-pipeline:v1 (by /u/personal-use)"
+_TOKEN_CACHE = {"token": None}
 
 # Acronyms TTS mispronounces -> spoken form.
 _EXPAND = {
@@ -37,16 +45,40 @@ def clean_text(text: str) -> str:
     return text
 
 
+def _oauth_token(client_id: str) -> str:
+    if _TOKEN_CACHE["token"]:
+        return _TOKEN_CACHE["token"]
+    auth = base64.b64encode(f"{client_id}:".encode()).decode()
+    body = urllib.parse.urlencode({
+        "grant_type": "https://oauth.reddit.com/grants/installed_client",
+        "device_id": "brainrot-pipeline-001",
+    }).encode()
+    req = urllib.request.Request(
+        "https://www.reddit.com/api/v1/access_token",
+        data=body,
+        headers={"Authorization": f"Basic {auth}", "User-Agent": UA},
+    )
+    with urllib.request.urlopen(req, timeout=20) as r:
+        token = json.load(r)["access_token"]
+    _TOKEN_CACHE["token"] = token
+    return token
+
+
 def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
                   timeframe: str = "week", limit: int = 25,
                   min_chars: int = 400, max_chars: int = 5000):
-    """Return list of {id, subreddit, title, body, text} dicts for narration.
+    """Return list of {id, subreddit, title, body, text} dicts for narration."""
+    headers = {"User-Agent": UA}
+    client_id = os.environ.get("REDDIT_CLIENT_ID")
+    if client_id:
+        headers["Authorization"] = f"bearer {_oauth_token(client_id)}"
+        host = "https://oauth.reddit.com"
+    else:
+        host = "https://www.reddit.com"
 
-    Longer stories are allowed; auto.py can split them into Part 1/Part 2/...
-    """
-    url = (f"https://www.reddit.com/r/{subreddit}/{listing}.json"
-           f"?t={timeframe}&limit={limit}")
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    url = (f"{host}/r/{subreddit}/{listing}.json"
+           f"?t={timeframe}&limit={limit}&raw_json=1")
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as resp:
         data = json.load(resp)
 

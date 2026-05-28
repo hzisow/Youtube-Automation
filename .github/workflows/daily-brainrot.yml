@@ -6,6 +6,9 @@ name: Daily Brainrot Videos
 #   github.com/hzisow/Vibecoding-Projects/settings/secrets/actions
 #
 #   GAMEPLAY_URL          (direct .mp4 download link to your gameplay clip)
+#   REDDIT_CLIENT_ID      (Reddit "installed app" client ID; needed because
+#                         Reddit blocks anonymous traffic from cloud IPs.
+#                         Create one free at reddit.com/prefs/apps -> "installed app".)
 #   CLIENT_SECRET_JSON    (contents of brainrot-pipeline/client_secret.json)
 #   TOKEN_JSON            (contents of brainrot-pipeline/token.json after first
 #                         local OAuth; refreshes itself on each run)
@@ -92,6 +95,8 @@ jobs:
           printf '%s' "$TIKTOK_TOKEN_JSON" > tiktok_token.json
 
       - name: Generate and upload
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
         run: |
           COUNT="${{ github.event.inputs.count || '2' }}"
           FLAGS="--count $COUNT"
