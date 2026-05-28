@@ -82,11 +82,12 @@ def _explode(words):
 
 def write_ass(words, ass_path: str, group_size: int = 1,
               font_name: str = DEFAULT_FONT, font_size: int = DEFAULT_SIZE,
-              color: str = None, y: int = DEFAULT_Y, animate: bool = True,
+              color: str = None, y: int = DEFAULT_Y, animate: bool = False,
               end_pad: float = 1.5) -> str:
-    """Write an ASS file. With group_size=1 (default) each word pops in one at a
+    """Write an ASS file. With group_size=1 (default) each word appears one at a
     time; larger groups show a short phrase with the active word highlighted.
-    Captions are gapless so text is always on screen."""
+    Captions are gapless so text is always on screen.
+    Set animate=True to re-enable the scale-in pop effect."""
     words = _explode(words)
     if color is None:
         color = tone.COLORS["yellow"]
