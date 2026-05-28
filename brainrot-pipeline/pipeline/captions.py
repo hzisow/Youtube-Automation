@@ -6,8 +6,8 @@ center, colored to match the story's tone. Word timings come from edge-tts.
 from .titlecard import _font
 from . import tone
 
-DEFAULT_FONT = "Arial Black"
-DEFAULT_SIZE = 120
+DEFAULT_FONT = "Arial"
+DEFAULT_SIZE = 96
 DEFAULT_Y = 1120  # just below vertical center (PlayResY 1920)
 _MAX_LINE_W = 1080 - 2 * 80 - 24
 
