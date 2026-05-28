@@ -72,6 +72,16 @@ python auto.py --count 2 --upload --privacy unlisted
 Other good subreddits: `tifu`, `AmItheAsshole`, `EntitledPeople`,
 `MaliciousCompliance`, `pettyrevenge`.
 
+## YouTube Shorts
+
+The output already qualifies as a Short — YouTube auto-classifies any vertical
+(or square) video ≤ 3 minutes as a Short, no special upload type required. Our
+videos are 1080×1920 and stories are capped at ~1.5 min, so they always qualify.
+`auto.py` also appends `#Shorts` to the title/description to help YouTube route
+them into the Shorts feed. To stay safely under the limit on longer stories,
+lower `--whisper-model` cost isn't the lever — instead reduce the source length
+via `max_chars` in `pipeline/reddit.py` or raise `--rate` (e.g. `+25%`).
+
 ## Hands-off scheduling (free)
 
 **Local cron** (simplest):

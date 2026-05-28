@@ -89,9 +89,12 @@ def main():
                            args.whisper_model, args.music)
             print(f"Rendered -> {out}")
             if uploader:
-                desc = f"{story['body']}\n\n#reddit #aita #story #brainrot"
-                uploader.upload(out, story["title"], desc,
-                                ["reddit", "aita", "story", "brainrot"],
+                title = story["title"]
+                if "#shorts" not in title.lower() and len(title) <= 90:
+                    title = f"{title} #Shorts"
+                desc = f"{story['body']}\n\n#Shorts #reddit #aita #story #brainrot"
+                uploader.upload(out, title, desc,
+                                ["shorts", "reddit", "aita", "story", "brainrot"],
                                 privacy=args.privacy)
             used.add(story["id"])
             _save_used(used)
