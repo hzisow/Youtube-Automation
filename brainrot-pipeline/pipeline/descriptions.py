@@ -35,18 +35,26 @@ def _part_suffix(part: int, total: int) -> str:
 
 
 def youtube(story: dict, part: int = 1, total_parts: int = 1):
-    """Return (title, description, tags) tuned for YouTube Shorts."""
+    """Return (title, description, tags) tuned for YouTube Shorts.
+
+    Description is intentionally short -- credit line, optional next-part teaser,
+    hashtags. No full body dump (it just clutters the Shorts UI).
+    """
     suffix = _part_suffix(part, total_parts)
     base_title = f"{story['title']}{suffix}"
     title = base_title if len(base_title) > 88 else f"{base_title} #Shorts"
     title = title[:100]
 
     sub = story.get("subreddit", "")
-    credit = f"Story from r/{sub} - credit to the original poster.\n\n" if sub else ""
-    next_part = ("\nSubscribe so you don't miss Part %d!\n" % (part + 1)) if part < total_parts else ""
     tags = _tags_for(sub)
-    hashtags = " ".join("#" + t for t in tags[:12])
-    desc = f"{credit}{story['body']}\n{next_part}\n{hashtags}".strip()[:4500]
+    hashtags = " ".join("#" + t for t in tags[:8])
+    parts = []
+    if sub:
+        parts.append(f"Story from r/{sub}")
+    if part < total_parts:
+        parts.append(f"Part {part + 1} coming next - subscribe!")
+    parts.append(hashtags)
+    desc = "\n\n".join(parts)[:4500]
     return title, desc, tags
 
 
