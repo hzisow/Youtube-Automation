@@ -23,19 +23,18 @@ name: Daily Brainrot Videos
 #  - Flip ENABLE_YOUTUBE / ENABLE_TIKTOK below once the matching secrets exist.
 
 on:
-  # Five staggered runs to hit TikTok's morning + evening peaks (US-centric).
-  # Each scheduled run uploads 1 video -> 5/day total, spread across the day.
+  # Three staggered runs targeting TikTok's morning + lunch + evening peaks.
+  # Each scheduled run uploads 1 video -> 3/day total, well under the GHA
+  # free tier and under YouTube's 6/day quota.
   schedule:
-    - cron: "0 13 * * *"   #  9:00 AM ET - morning commute
-    - cron: "0 16 * * *"   # 12:00 PM ET - lunch
-    - cron: "0 19 * * *"   #  3:00 PM ET - after school
+    - cron: "0 13 * * *"   #  9:00 AM ET - morning
+    - cron: "0 19 * * *"   #  3:00 PM ET - afternoon
     - cron: "0 23 * * *"   #  7:00 PM ET - evening peak
-    - cron: "0  2 * * *"   # 10:00 PM ET - late peak
   workflow_dispatch:
     inputs:
       count:
         description: "Bulk count for manual runs (scheduled runs upload 1 each)"
-        default: "5"
+        default: "1"
 
 env:
   ENABLE_YOUTUBE: "true"

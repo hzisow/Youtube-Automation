@@ -161,26 +161,47 @@ def main():
     }
 
     made = 0
+    quota_exhausted = False
     for story in fresh:
-        if made >= args.count:
+        if made >= args.count or quota_exhausted:
             break
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
+
+        # Render is its own try/except: a render failure skips this story but
+        # doesn't burn through the rest of the cache.
         try:
             outs = make_one(story, opts)
-            for n, out in enumerate(outs, 1):
-                print(f"Rendered -> {out}")
-                if uploader:
-                    yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs))
+        except Exception as e:
+            print(f"Render failed, skipping: {type(e).__name__}: {e}")
+            continue
+
+        # Render succeeded -> count it and mark used immediately, even if
+        # uploads fail. This prevents one bad upload (e.g. YouTube quota) from
+        # causing the loop to fan out and render the entire cache.
+        used.add(story["id"])
+        _save_used(used)
+        made += 1
+
+        for n, out in enumerate(outs, 1):
+            print(f"Rendered -> {out}")
+            if uploader:
+                yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs))
+                try:
                     uploader.upload(out, yt_title, yt_desc, yt_tags, privacy=args.privacy)
-                if tiktok:
-                    tt_caption = descriptions.tiktok(story, n, len(outs))
+                except Exception as e:
+                    msg = str(e).lower()
+                    print(f"YouTube upload failed: {type(e).__name__}: {e}")
+                    if "quota" in msg or "uploadlimit" in msg:
+                        print("YouTube quota appears exhausted; stopping further runs today.")
+                        quota_exhausted = True
+                        break
+            if tiktok:
+                tt_caption = descriptions.tiktok(story, n, len(outs))
+                try:
                     tiktok.upload(out, tt_caption, mode=args.tiktok_mode,
                                   privacy=args.tiktok_privacy)
-            used.add(story["id"])
-            _save_used(used)
-            made += 1
-        except Exception as e:
-            print(f"Skipping this story due to error: {type(e).__name__}: {e}")
+                except Exception as e:
+                    print(f"TikTok upload failed: {type(e).__name__}: {e}")
 
     print(f"\nFinished. {made} story(ies) in {OUT_DIR}")
 
