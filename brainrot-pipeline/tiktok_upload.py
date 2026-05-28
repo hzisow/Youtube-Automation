@@ -5,11 +5,15 @@ One-time setup:
   1. developers.tiktok.com -> create an app -> add the "Content Posting API"
      product. Request scopes: video.upload (drafts/inbox) and, once your app is
      audited, video.publish (direct post).
-  2. Add a redirect URI of exactly:  http://localhost:8721/callback
+  2. TikTok does NOT allow localhost redirects, so host the included callback
+     page on GitHub Pages and register that HTTPS URL as your redirect URI
+     (e.g. https://<you>.github.io/<repo>/).
   3. Save your credentials next to this file as tiktok_client.json:
-        {"client_key": "...", "client_secret": "..."}
-  4. First run opens a browser to authorize; the token is cached in
-     tiktok_token.json and auto-refreshed.
+        {"client_key": "...", "client_secret": "...",
+         "redirect_uri": "https://<you>.github.io/<repo>/"}
+  4. First run opens a browser to authorize; the callback page shows a code you
+     paste back into the terminal. The token is cached in tiktok_token.json and
+     auto-refreshed thereafter.
 
 Modes:
   - inbox (default): uploads to your TikTok drafts; you tap Post in the app.
@@ -21,10 +25,8 @@ Example:
   python tiktok_upload.py --file output/story.mp4 --title "AITA for..." --mode inbox
 """
 import argparse
-import http.server
 import json
 import os
-import threading
 import time
 import urllib.parse
 import webbrowser
@@ -34,8 +36,6 @@ import requests
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLIENT = os.path.join(HERE, "tiktok_client.json")
 TOKEN = os.path.join(HERE, "tiktok_token.json")
-REDIRECT_URI = "http://localhost:8721/callback"
-REDIRECT_PORT = 8721
 
 AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
@@ -48,38 +48,24 @@ def _client():
         return json.load(f)
 
 
-def _capture_code(scope: str, client_key: str) -> str:
-    """Open the consent screen and capture the OAuth code via a local redirect."""
-    box = {}
-
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            q = urllib.parse.urlparse(self.path).query
-            box.update(urllib.parse.parse_qs(q))
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"TikTok authorization complete. You can close this tab.")
-
-        def log_message(self, *a):
-            pass
-
-    server = http.server.HTTPServer(("localhost", REDIRECT_PORT), Handler)
-    threading.Thread(target=server.handle_request, daemon=True).start()
-
+def _capture_code(scope: str, client_key: str, redirect_uri: str) -> str:
+    """Open the consent screen; user pastes the code shown on the callback page."""
     params = {
         "client_key": client_key,
         "scope": scope,
         "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "state": str(int(time.time())),
     }
-    webbrowser.open(f"{AUTH_URL}?{urllib.parse.urlencode(params)}")
-    print("A browser window opened for TikTok authorization. Waiting...")
-    for _ in range(300):
-        if "code" in box:
-            return box["code"][0]
-        time.sleep(1)
-    raise TimeoutError("Did not receive an authorization code from TikTok.")
+    url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
+    print("\nOpening TikTok authorization in your browser...")
+    print("If it doesn't open, paste this URL manually:\n" + url + "\n")
+    webbrowser.open(url)
+    pasted = input("After approving, paste the code (or the full redirected URL) here:\n").strip()
+    if "code=" in pasted:  # user pasted the whole URL
+        q = urllib.parse.urlparse(pasted).query
+        return urllib.parse.parse_qs(q)["code"][0]
+    return pasted
 
 
 def _save_token(tok: dict):
@@ -106,13 +92,14 @@ def _token(scope: str) -> str:
             _save_token(r)
             return r["access_token"]
 
-    code = _capture_code(scope, cfg["client_key"])
+    redirect_uri = cfg["redirect_uri"]
+    code = _capture_code(scope, cfg["client_key"], redirect_uri)
     r = requests.post(TOKEN_URL, data={
         "client_key": cfg["client_key"],
         "client_secret": cfg["client_secret"],
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri,
     }).json()
     if "access_token" not in r:
         raise RuntimeError(f"TikTok token exchange failed: {r}")
