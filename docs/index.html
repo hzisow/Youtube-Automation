@@ -3,37 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TikTok Auth Callback</title>
+  <title>RedditStories Uploader</title>
+  <meta name="description" content="RedditStories Uploader is a personal desktop tool that turns public Reddit story posts into short-form videos and uploads them to my own YouTube and TikTok accounts via official APIs.">
   <style>
     body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#0f0f0f;
-           color:#fff; display:flex; min-height:100vh; align-items:center;
-           justify-content:center; margin:0; }
-    .card { background:#1a1a1b; padding:32px; border-radius:16px; max-width:560px;
-            width:90%; box-shadow:0 8px 30px rgba(0,0,0,.5); }
-    h1 { font-size:20px; margin:0 0 12px; }
-    p { color:#b0b3b8; line-height:1.5; }
+           color:#e6e6e6; margin:0; min-height:100vh;
+           display:flex; align-items:center; justify-content:center; padding:40px 24px; }
+    .wrap { max-width:720px; width:100%; }
+    .icon { width:96px; height:96px; border-radius:24px; margin-bottom:24px; }
+    h1 { font-size:36px; margin:0 0 8px; color:#fff; }
+    .tag { color:#9b9b9b; margin:0 0 28px; }
+    h2 { color:#fff; font-size:20px; margin:32px 0 10px; }
+    p { line-height:1.55; }
+    a { color:#5ac8fa; }
+    .meta { color:#888; font-size:13px; margin-top:36px; }
+    .card { background:#1a1a1b; padding:24px; border-radius:12px;
+            box-shadow:0 4px 18px rgba(0,0,0,.4); }
     code { display:block; background:#0f0f0f; border:1px solid #333; border-radius:8px;
-           padding:14px; margin:16px 0; word-break:break-all; color:#0ff; font-size:15px; }
-    button { background:#ff4500; color:#fff; border:0; border-radius:8px; padding:12px 18px;
-             font-size:15px; cursor:pointer; }
-    .muted { font-size:13px; }
+           padding:14px; margin:14px 0; word-break:break-all; color:#0ff; font-size:14px; }
+    button { background:#ff4500; color:#fff; border:0; border-radius:8px;
+             padding:10px 16px; font-size:14px; cursor:pointer; }
+    #callback { display:none; margin-top:36px; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Authorization code</h1>
-    <p>Copy this code and paste it back into the terminal running
-       <strong>tiktok_upload.py</strong>:</p>
-    <code id="code">No code found in URL.</code>
-    <button onclick="copyCode()">Copy code</button>
-    <p class="muted" id="state"></p>
+  <div class="wrap">
+    <img class="icon" src="app-icon.png" alt="RedditStories Uploader icon">
+    <h1>RedditStories Uploader</h1>
+    <p class="tag">A personal desktop tool by Henry Zisow.</p>
+
+    <h2>What this app does</h2>
+    <p>
+      RedditStories Uploader is a personal, single-user desktop tool written in
+      Python. It turns public Reddit story posts (from subreddits like
+      <em>r/AmItheAsshole</em>, <em>r/tifu</em>, <em>r/MaliciousCompliance</em>)
+      into short-form vertical videos with synthesized narration and burned-in
+      captions, then uploads those videos to <strong>my own YouTube channel</strong>
+      and <strong>my own TikTok account</strong> via each platform's official API.
+    </p>
+
+    <h2>Why it needs OAuth access</h2>
+    <p>
+      The tool authenticates via Google OAuth so it can call the YouTube Data
+      API's <code style="display:inline; padding:1px 6px">youtube.upload</code>
+      scope to upload finished videos to my own channel. It does not read other
+      accounts, comments, viewer data, or anything beyond what's required to
+      publish my own videos. The access token is stored only on my local
+      machine and never transmitted to any third-party server.
+    </p>
+
+    <h2>Links</h2>
+    <p>
+      <a href="privacy.html">Privacy Policy</a> &middot;
+      <a href="terms.html">Terms of Service</a> &middot;
+      <a href="https://github.com/hzisow/Vibecoding-Projects">Source code on GitHub</a>
+    </p>
+
+    <p class="meta">
+      Contact: <a href="mailto:henryzisow@gmail.com">henryzisow@gmail.com</a><br>
+      Owner: Henry Zisow
+    </p>
+
+    <!-- Shown only when the page is loaded as the OAuth callback (?code=...). -->
+    <div id="callback" class="card">
+      <h2 style="margin-top:0">Authorization code</h2>
+      <p>Copy this code and paste it back into the terminal running
+         <strong>tiktok_upload.py</strong>:</p>
+      <code id="code">No code found in URL.</code>
+      <button onclick="copyCode()">Copy code</button>
+      <p class="meta" id="state"></p>
+    </div>
   </div>
+
   <script>
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
-    if (code) document.getElementById("code").textContent = code;
-    if (state) document.getElementById("state").textContent = "state: " + state;
+    if (code) {
+      document.getElementById("callback").style.display = "block";
+      document.getElementById("code").textContent = code;
+      if (state) document.getElementById("state").textContent = "state: " + state;
+    }
     function copyCode() {
       if (code) navigator.clipboard.writeText(code);
     }
