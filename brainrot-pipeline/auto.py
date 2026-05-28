@@ -13,6 +13,7 @@ Examples:
 import argparse
 import json
 import os
+import random
 import re
 
 from pipeline import reddit, tts, captions, video, titlecard
@@ -20,6 +21,12 @@ from pipeline import reddit, tts, captions, video, titlecard
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
 OUT_DIR = os.path.join(HERE, "output")
+
+# Good story-driven subreddits for narrated shorts.
+DEFAULT_SUBREDDITS = [
+    "AmItheAsshole", "tifu", "MaliciousCompliance",
+    "pettyrevenge", "ProRevenge", "EntitledParents", "confession",
+]
 
 
 def _load_used():
@@ -58,7 +65,8 @@ def make_one(story, background, voice, rate, whisper_model, music, channel="Redd
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--count", type=int, default=3, help="How many videos to make.")
-    p.add_argument("--subreddit", default="AmItheAsshole")
+    p.add_argument("--subreddit", nargs="+", default=DEFAULT_SUBREDDITS,
+                   help="One or more subreddits to pull from.")
     p.add_argument("--listing", default="top", choices=["top", "hot", "new", "rising"])
     p.add_argument("--timeframe", default="week", choices=["day", "week", "month", "year", "all"])
     p.add_argument("--background", default=os.path.join(HERE, "assets", "gameplay.mp4"))
@@ -66,13 +74,25 @@ def main():
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
     p.add_argument("--rate", default="+18%")
     p.add_argument("--whisper-model", default="base")
+    p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
     p.add_argument("--upload", action="store_true", help="Upload finished videos to YouTube.")
     p.add_argument("--privacy", default="unlisted", choices=["public", "unlisted", "private"])
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
     used = _load_used()
-    pool = reddit.fetch_stories(args.subreddit, args.listing, args.timeframe, limit=50)
+
+    pool = []
+    seen_ids = set()
+    for sub in args.subreddit:
+        try:
+            for s in reddit.fetch_stories(sub, args.listing, args.timeframe, limit=50):
+                if s["id"] not in seen_ids:
+                    seen_ids.add(s["id"])
+                    pool.append(s)
+        except Exception as e:
+            print(f"Could not fetch r/{sub}: {type(e).__name__}: {e}")
+    random.shuffle(pool)
     fresh = [s for s in pool if s["id"] not in used]
 
     if not fresh:
@@ -90,15 +110,15 @@ def main():
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
         try:
             out = make_one(story, args.background, args.voice, args.rate,
-                           args.whisper_model, args.music)
+                           args.whisper_model, args.music, channel=args.channel)
             print(f"Rendered -> {out}")
             if uploader:
                 title = story["title"]
                 if "#shorts" not in title.lower() and len(title) <= 90:
                     title = f"{title} #Shorts"
-                desc = f"{story['body']}\n\n#Shorts #reddit #aita #story #brainrot"
+                desc = f"{story['body']}\n\n#Shorts #reddit #story #storytime #brainrot"
                 uploader.upload(out, title, desc,
-                                ["shorts", "reddit", "aita", "story", "brainrot"],
+                                ["shorts", "reddit", "story", "storytime", "brainrot"],
                                 privacy=args.privacy)
             used.add(story["id"])
             _save_used(used)
