@@ -98,6 +98,8 @@ def main():
     p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
     p.add_argument("--max-seconds", type=int, default=70,
                    help="Only split into Part 1/Part 2/... if narration exceeds this (default 70s = 1:10).")
+    p.add_argument("--min-seconds", type=int, default=55,
+                   help="Skip stories whose narration would be shorter than this.")
     p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
     p.add_argument("--music", dest="music", default=None,
                    help="Optional background music file (off by default).")
@@ -122,10 +124,13 @@ def main():
         except Exception as e:
             print(f"Could not fetch r/{sub}: {type(e).__name__}: {e}")
     random.shuffle(pool)
-    fresh = [s for s in pool if s["id"] not in used]
+    min_chars = args.min_seconds * split.CHARS_PER_SECOND
+    fresh = [s for s in pool
+             if s["id"] not in used and len(s["text"]) >= min_chars]
 
     if not fresh:
-        print("No fresh stories found (all already used). Try a different timeframe/subreddit.")
+        print("No fresh stories long enough found. Lower --min-seconds or try a "
+              "different timeframe/subreddit.")
         return
 
     uploader = None
