@@ -1,5 +1,5 @@
 """Assemble final 1080x1920 video with FFmpeg: gameplay bg + voiceover + burned
-captions, plus an optional Reddit-style title card overlaid at the start."""
+captions, optional title card, looping background music, and a ding intro."""
 import json
 import subprocess
 
@@ -13,22 +13,26 @@ def _duration(path: str) -> float:
 
 
 def render(background: str, audio: str, ass: str, out_path: str,
-           music: str | None = None, music_volume: float = 0.12,
+           music: str | None = None, music_volume: float = 0.10,
+           ding: str | None = None, ding_volume: float = 0.5,
            card: str | None = None, card_end: float = 0.0,
            card_y: int = 230) -> str:
-    """Loop+crop background to 1080x1920, burn captions, optionally overlay a
-    title card for the first `card_end` seconds, and set length to the voiceover."""
+    """Render the final short. Background loops/crops to 1080x1920, captions are
+    burned in, an optional title card shows for the first `card_end` seconds, and
+    voice/music/ding are mixed together."""
     audio_dur = _duration(audio)
-    # Escape the subtitles path for ffmpeg's filtergraph (drive colon + backslashes).
     ass_arg = ass.replace("\\", "/").replace(":", "\\:")
 
-    # Inputs: 0=background, 1=voice, then optional music, then optional card image.
+    # Inputs (order fixes their stream indices).
     inputs = ["-stream_loop", "-1", "-i", background, "-i", audio]
     idx = 2
-    music_idx = card_idx = None
+    music_idx = ding_idx = card_idx = None
     if music:
-        inputs += ["-i", music]
+        inputs += ["-stream_loop", "-1", "-i", music]
         music_idx, idx = idx, idx + 1
+    if ding:
+        inputs += ["-i", ding]
+        ding_idx, idx = idx, idx + 1
     if card:
         inputs += ["-i", card]
         card_idx, idx = idx, idx + 1
@@ -46,11 +50,16 @@ def render(background: str, audio: str, ass: str, out_path: str,
     else:
         vmap = "[base]"
 
+    mix = ["[1:a]"]
     if music_idx is not None:
-        graph.append(
-            f"[1:a]volume=1.0[v1];[{music_idx}:a]volume={music_volume}[m];"
-            "[v1][m]amix=inputs=2:duration=first:dropout_transition=0[aout]"
-        )
+        graph.append(f"[{music_idx}:a]volume={music_volume}[m]")
+        mix.append("[m]")
+    if ding_idx is not None:
+        graph.append(f"[{ding_idx}:a]volume={ding_volume}[d]")
+        mix.append("[d]")
+    if len(mix) > 1:
+        graph.append("".join(mix) +
+                     f"amix=inputs={len(mix)}:duration=first:dropout_transition=0[aout]")
         amap = "[aout]"
     else:
         amap = "1:a"

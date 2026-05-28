@@ -39,8 +39,26 @@ python generate.py --story stories/sample.txt --background assets/gameplay.mp4
 ```
 
 Useful flags: `--voice en-US-AndrewNeural` (list voices: `edge-tts --list-voices`),
-`--rate +18%`, `--whisper-model small`, `--music assets/bg.mp3`,
-`--words-per-group 3`.
+`--rate +18%`, `--music assets/bg.mp3`, `--words-per-group 1` (MrBeast one-word
+style; default), `--color red` (yellow/red/orange/green/cyan/purple),
+`--no-card`, `--no-ding`.
+
+## Style & extras
+
+- **Captions:** one bold word at a time (Arial Black) that pops in just below
+  center, colored to match the story's tone. Word timing comes straight from
+  edge-tts (instant, no Whisper download).
+- **Title card:** Reddit Snoo card at the start, auto-hidden when the spoken
+  title ends.
+- **Intro ding:** a notification chime is generated once (`assets/ding.wav`)
+  and mixed at the start. Disable with `--no-ding`.
+- **Background music:** drop a track at `assets/music.mp3` and it's mixed in
+  automatically (low volume, looped). Free sources: YouTube Audio Library,
+  Pixabay Music, Incompetech. Override with `--music path` or `--no-music`.
+- **Long stories:** `auto.py` splits anything over `--max-seconds` (default 55)
+  into Part 1 / Part 2 / ... automatically.
+- **Better voice (free):** try `--voice en-US-BrianNeural`,
+  `en-US-ChristopherNeural`, `en-US-GuyNeural`, or `en-US-EricNeural`.
 
 ## Auto-upload to YouTube
 

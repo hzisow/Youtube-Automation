@@ -16,7 +16,7 @@ import os
 import random
 import re
 
-from pipeline import reddit, tts, captions, video, titlecard
+from pipeline import reddit, tts, captions, video, titlecard, tone, split, sfx
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -45,21 +45,41 @@ def _slug(text, n=40):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "video"
 
 
-def make_one(story, background, voice, rate, whisper_model, music, channel="Redditstories"):
-    slug = _slug(story["title"])
+def _make_video(text, card_title, time_title, slug, color, opts):
     audio = os.path.join(OUT_DIR, f"{slug}.mp3")
     ass = os.path.join(OUT_DIR, f"{slug}.ass")
     card = os.path.join(OUT_DIR, f"{slug}.png")
     out = os.path.join(OUT_DIR, f"{slug}.mp4")
 
-    tts.synthesize(story["text"], audio, voice=voice, rate=rate)
-    words = captions.transcribe_words(audio, model_size=whisper_model)
-    captions.write_ass(words, ass)
-    titlecard.render_card(story["title"], card, username=channel)
-    card_end = titlecard.title_end_time(words, story["title"])
-    video.render(background, audio, ass, out, music=music,
-                 card=card, card_end=card_end)
+    words = tts.synthesize(text, audio, voice=opts["voice"], rate=opts["rate"])
+    captions.write_ass(words, ass, color=color)
+    titlecard.render_card(card_title, card, username=opts["channel"])
+    if time_title:
+        card_end = titlecard.title_end_time(words, time_title)
+    else:
+        card_end = min(2.5, video._duration(audio))
+    video.render(opts["background"], audio, ass, out, music=opts["music"],
+                 ding=opts["ding"], card=card, card_end=card_end)
     return out
+
+
+def make_one(story, opts):
+    """Render a story; returns one or more output paths (Part 1/2/... if long)."""
+    color = tone.color_for(story.get("subreddit"), story["title"])
+    parts = split.split_text(story["body"], max_seconds=opts["max_seconds"])
+    multi = len(parts) > 1
+    base = _slug(story["title"])
+    outs = []
+    for i, part in enumerate(parts, 1):
+        if multi:
+            card_title = f"{story['title']} (Part {i})"
+            slug = f"{base}-p{i}"
+            text = f"{story['title']}. {part}" if i == 1 else f"Part {i}. {part}"
+            time_title = story["title"] if i == 1 else None
+        else:
+            card_title, slug, text, time_title = story["title"], base, story["text"], story["title"]
+        outs.append(_make_video(text, card_title, time_title, slug, color, opts))
+    return outs
 
 
 def main():
@@ -73,8 +93,11 @@ def main():
     p.add_argument("--music", default=None)
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
     p.add_argument("--rate", default="+18%")
-    p.add_argument("--whisper-model", default="base")
     p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
+    p.add_argument("--max-seconds", type=int, default=55,
+                   help="Stories longer than this are split into Part 1/Part 2/...")
+    p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
+    p.add_argument("--no-music", action="store_true", help="Disable background music.")
     p.add_argument("--upload", action="store_true", help="Upload finished videos to YouTube.")
     p.add_argument("--privacy", default="unlisted", choices=["public", "unlisted", "private"])
     args = p.parse_args()
@@ -103,30 +126,44 @@ def main():
     if args.upload:
         import upload as uploader  # imported lazily so render-only runs need no Google libs
 
+    # Background music: explicit --music, else assets/music.mp3 if present.
+    music = args.music
+    if not music and not args.no_music:
+        default_music = os.path.join(HERE, "assets", "music.mp3")
+        music = default_music if os.path.exists(default_music) else None
+    ding = None if args.no_ding else sfx.ensure_ding(os.path.join(HERE, "assets", "ding.wav"))
+
+    opts = {
+        "background": args.background, "voice": args.voice, "rate": args.rate,
+        "channel": args.channel, "music": music, "ding": ding,
+        "max_seconds": args.max_seconds,
+    }
+
     made = 0
     for story in fresh:
         if made >= args.count:
             break
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
         try:
-            out = make_one(story, args.background, args.voice, args.rate,
-                           args.whisper_model, args.music, channel=args.channel)
-            print(f"Rendered -> {out}")
-            if uploader:
-                title = story["title"]
-                if "#shorts" not in title.lower() and len(title) <= 90:
-                    title = f"{title} #Shorts"
-                desc = f"{story['body']}\n\n#Shorts #reddit #story #storytime #brainrot"
-                uploader.upload(out, title, desc,
-                                ["shorts", "reddit", "story", "storytime", "brainrot"],
-                                privacy=args.privacy)
+            outs = make_one(story, opts)
+            for n, out in enumerate(outs, 1):
+                print(f"Rendered -> {out}")
+                if uploader:
+                    suffix = f" (Part {n})" if len(outs) > 1 else ""
+                    title = f"{story['title']}{suffix}"
+                    if "#shorts" not in title.lower() and len(title) <= 88:
+                        title = f"{title} #Shorts"
+                    desc = f"{story['body']}\n\n#Shorts #reddit #story #storytime #brainrot"
+                    uploader.upload(out, title, desc,
+                                    ["shorts", "reddit", "story", "storytime", "brainrot"],
+                                    privacy=args.privacy)
             used.add(story["id"])
             _save_used(used)
             made += 1
         except Exception as e:
             print(f"Skipping this story due to error: {type(e).__name__}: {e}")
 
-    print(f"\nFinished. {made} video(s) in {OUT_DIR}")
+    print(f"\nFinished. {made} story(ies) in {OUT_DIR}")
 
 
 if __name__ == "__main__":

@@ -39,8 +39,11 @@ def clean_text(text: str) -> str:
 
 def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
                   timeframe: str = "week", limit: int = 25,
-                  min_chars: int = 400, max_chars: int = 1400):
-    """Return list of {id, title, body, text} dicts suitable for narration."""
+                  min_chars: int = 400, max_chars: int = 5000):
+    """Return list of {id, subreddit, title, body, text} dicts for narration.
+
+    Longer stories are allowed; auto.py can split them into Part 1/Part 2/...
+    """
     url = (f"https://www.reddit.com/r/{subreddit}/{listing}.json"
            f"?t={timeframe}&limit={limit}")
     req = urllib.request.Request(url, headers={"User-Agent": UA})
@@ -58,6 +61,7 @@ def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
         title = clean_text(p.get("title", ""))
         stories.append({
             "id": p["id"],
+            "subreddit": p.get("subreddit", subreddit),
             "title": title,
             "body": body,
             "text": f"{title}. {body}",
