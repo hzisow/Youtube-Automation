@@ -26,10 +26,7 @@ def _ts(seconds: float) -> str:
     return f"{h:d}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def transcribe_words(audio_path: str, model_size: str = "base"):
-    """Return list of (word, start, end). GPU auto-used if available."""
-    model = WhisperModel(model_size, compute_type="auto")
-    segments, _ = model.transcribe(audio_path, word_timestamps=True)
+def _collect(segments):
     words = []
     for seg in segments:
         for w in seg.words or []:
@@ -37,6 +34,20 @@ def transcribe_words(audio_path: str, model_size: str = "base"):
             if token:
                 words.append((token, w.start, w.end))
     return words
+
+
+def transcribe_words(audio_path: str, model_size: str = "base"):
+    """Return list of (word, start, end). Tries GPU, falls back to CPU.
+
+    GPU needs the CUDA runtime (cuBLAS/cuDNN) installed; if it's missing we
+    transparently retry on CPU with int8, which is fast enough for short clips.
+    """
+    try:
+        model = WhisperModel(model_size, device="cuda", compute_type="float16")
+        return _collect(model.transcribe(audio_path, word_timestamps=True)[0])
+    except Exception:
+        model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        return _collect(model.transcribe(audio_path, word_timestamps=True)[0])
 
 
 def write_ass(words, ass_path: str, group_size: int = 3) -> str:
