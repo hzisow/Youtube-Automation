@@ -18,12 +18,17 @@ async def _synth(text, out_path, voice, rate, pitch):
     words = []
     with open(out_path, "wb") as f:
         async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                f.write(chunk["data"])
-            elif chunk["type"] == "WordBoundary":
-                start = chunk["offset"] / 1e7          # 100ns units -> seconds
-                end = start + chunk["duration"] / 1e7
-                words.append((chunk["text"], start, end))
+            ctype = chunk.get("type")
+            if ctype == "audio":
+                data = chunk.get("data")
+                if data:
+                    f.write(data)
+            elif ctype == "WordBoundary" or ("offset" in chunk and "text" in chunk):
+                token = (chunk.get("text") or "").strip()
+                if token:
+                    start = chunk.get("offset", 0) / 1e7   # 100ns units -> seconds
+                    end = start + chunk.get("duration", 0) / 1e7
+                    words.append((token, start, end))
     return words
 
 

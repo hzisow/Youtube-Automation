@@ -1,14 +1,19 @@
-"""Generate a short notification 'ding' once with FFmpeg (no asset download)."""
+"""Provide the intro 'ding'. Prefers the bundled sound; synthesizes if missing."""
 import os
 import subprocess
 
+BUNDLED = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "sounds", "ding.mp3"))
+
 
 def ensure_ding(path: str) -> str:
-    """Create a two-tone notification chime at `path` if it doesn't exist."""
+    """Return a ding audio path: the bundled sounds/ding.mp3 if present, else a
+    synthesized chime written to `path`."""
+    if os.path.exists(BUNDLED):
+        return BUNDLED
     if os.path.exists(path):
         return path
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    # Two quick ascending sine tones with a fast decay -> a clean "ding-ding".
     cmd = [
         "ffmpeg", "-y",
         "-f", "lavfi", "-i", "sine=frequency=880:duration=0.18",
