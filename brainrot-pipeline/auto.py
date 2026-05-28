@@ -100,6 +100,9 @@ def main():
                    help="Only split into Part 1/Part 2/... if narration exceeds this (default 70s = 1:10).")
     p.add_argument("--min-seconds", type=int, default=55,
                    help="Skip stories whose narration would be shorter than this.")
+    p.add_argument("--cache", default=None,
+                   help="Path to stories_cache.json. If set, read from cache "
+                        "instead of fetching Reddit live (needed for cloud runs).")
     p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
     p.add_argument("--music", dest="music", default=None,
                    help="Optional background music file (off by default).")
@@ -117,15 +120,19 @@ def main():
     used = _load_used()
 
     pool = []
-    seen_ids = set()
-    for sub in args.subreddit:
-        try:
-            for s in reddit.fetch_stories(sub, args.listing, args.timeframe, limit=50):
-                if s["id"] not in seen_ids:
-                    seen_ids.add(s["id"])
-                    pool.append(s)
-        except Exception as e:
-            print(f"Could not fetch r/{sub}: {type(e).__name__}: {e}")
+    if args.cache:
+        pool = reddit.load_cache(args.cache)
+        print(f"Loaded {len(pool)} stories from cache: {args.cache}")
+    else:
+        seen_ids = set()
+        for sub in args.subreddit:
+            try:
+                for s in reddit.fetch_stories(sub, args.listing, args.timeframe, limit=50):
+                    if s["id"] not in seen_ids:
+                        seen_ids.add(s["id"])
+                        pool.append(s)
+            except Exception as e:
+                print(f"Could not fetch r/{sub}: {type(e).__name__}: {e}")
     random.shuffle(pool)
     min_chars = args.min_seconds * split.CHARS_PER_SECOND
     fresh = [s for s in pool

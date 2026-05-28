@@ -64,10 +64,28 @@ def _oauth_token(client_id: str) -> str:
     return token
 
 
+def load_cache(path: str) -> list:
+    """Read a previously-saved stories_cache.json (or return [])."""
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_cache(path: str, stories: list) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(stories, f, indent=2)
+
+
 def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
                   timeframe: str = "week", limit: int = 25,
-                  min_chars: int = 400, max_chars: int = 5000):
-    """Return list of {id, subreddit, title, body, text} dicts for narration."""
+                  min_chars: int = 400, max_chars: int = 5000,
+                  max_pages: int = 1):
+    """Return list of {id, subreddit, title, body, text} dicts for narration.
+
+    Paginates through Reddit's listing up to `max_pages` (100 posts each) so
+    a single call can pull hundreds of stories.
+    """
     headers = {"User-Agent": UA}
     client_id = os.environ.get("REDDIT_CLIENT_ID")
     if client_id:
@@ -76,26 +94,35 @@ def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
     else:
         host = "https://www.reddit.com"
 
-    url = (f"{host}/r/{subreddit}/{listing}.json"
-           f"?t={timeframe}&limit={limit}&raw_json=1")
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.load(resp)
-
     stories = []
-    for child in data["data"]["children"]:
-        p = child["data"]
-        if p.get("stickied") or p.get("over_18"):
-            continue
-        body = clean_text(p.get("selftext", ""))
-        if not (min_chars <= len(body) <= max_chars):
-            continue
-        title = clean_text(p.get("title", ""))
-        stories.append({
-            "id": p["id"],
-            "subreddit": p.get("subreddit", subreddit),
-            "title": title,
-            "body": body,
-            "text": f"{title}. {body}",
-        })
+    after = None
+    for _ in range(max_pages):
+        params = {"t": timeframe, "limit": str(min(limit, 100)), "raw_json": "1"}
+        if after:
+            params["after"] = after
+        url = f"{host}/r/{subreddit}/{listing}.json?" + urllib.parse.urlencode(params)
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.load(resp)
+        children = data["data"]["children"]
+        if not children:
+            break
+        for child in children:
+            p = child["data"]
+            if p.get("stickied") or p.get("over_18"):
+                continue
+            body = clean_text(p.get("selftext", ""))
+            if not (min_chars <= len(body) <= max_chars):
+                continue
+            title = clean_text(p.get("title", ""))
+            stories.append({
+                "id": p["id"],
+                "subreddit": p.get("subreddit", subreddit),
+                "title": title,
+                "body": body,
+                "text": f"{title}. {body}",
+            })
+        after = data["data"].get("after")
+        if not after:
+            break
     return stories

@@ -40,6 +40,8 @@ env:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     defaults:
       run:
         working-directory: brainrot-pipeline
@@ -95,14 +97,23 @@ jobs:
           printf '%s' "$TIKTOK_TOKEN_JSON" > tiktok_token.json
 
       - name: Generate and upload
-        env:
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
         run: |
           COUNT="${{ github.event.inputs.count || '2' }}"
-          FLAGS="--count $COUNT"
+          FLAGS="--count $COUNT --cache stories_cache.json"
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
           python auto.py $FLAGS
+
+      - name: Persist used.json so tomorrow's run skips today's stories
+        if: always()
+        run: |
+          if [ -f used.json ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add used.json
+            git diff --staged --quiet || git commit -m "chore: update used.json [skip ci]"
+            git push || true
+          fi
 
       - name: Upload finished videos as build artifacts
         uses: actions/upload-artifact@v4
