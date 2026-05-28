@@ -50,14 +50,30 @@ def youtube(story: dict, part: int = 1, total_parts: int = 1):
     return title, desc, tags
 
 
-def tiktok(story: dict, part: int = 1, total_parts: int = 1) -> str:
-    """Return a single TikTok caption (title field). Capped to ~140 chars."""
+# Hashtags that must appear on every TikTok caption no matter what.
+TIKTOK_REQUIRED = ["fyp", "viral", "trending"]
+
+
+def tiktok(story: dict, part: int = 1, total_parts: int = 1,
+           limit: int = 140) -> str:
+    """Return a single TikTok caption. Always includes the required hashtags;
+    fills remaining room with subreddit/content hashtags."""
     suffix = _part_suffix(part, total_parts)
     sub = story.get("subreddit", "")
-    tags = _tags_for(sub)
+    required_str = " " + " ".join("#" + t for t in TIKTOK_REQUIRED)
+    optional = [t for t in _tags_for(sub) if t not in TIKTOK_REQUIRED]
+
     base = f"{story['title']}{suffix}"
-    hashtags = " " + " ".join("#" + t for t in tags[:6])
-    room = 140 - len(hashtags)
-    if len(base) > room:
-        base = base[:max(0, room - 1)].rstrip() + "..."
-    return (base + hashtags).strip()
+    head_budget = limit - len(required_str)
+    if len(base) > head_budget:
+        base = base[:max(0, head_budget - 3)].rstrip() + "..."
+        return (base + required_str).strip()
+
+    cap = base
+    for t in optional:
+        candidate = f"{cap} #{t}"
+        if len(candidate) + len(required_str) <= limit:
+            cap = candidate
+        else:
+            break
+    return (cap + required_str).strip()
