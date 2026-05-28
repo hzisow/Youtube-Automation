@@ -3,8 +3,13 @@
 Default style is MrBeast-ish: one bold word at a time, popping in just below
 center, colored to match the story's tone. Word timings come from edge-tts.
 """
+import re
+
 from .titlecard import _font
 from . import tone
+
+# Strip punctuation when displaying words (commas, periods, quotes, etc.).
+_PUNCT_RE = re.compile(r"[^A-Za-z0-9]+")
 
 DEFAULT_FONT = "Arial"
 DEFAULT_SIZE = 96
@@ -49,7 +54,7 @@ def _layout(chunk, active, font, space_w):
     """Multi-word fallback: styled text with \\N breaks so it stays on screen."""
     rows, row, row_w = [], [], 0.0
     for k, (token, _, _) in enumerate(chunk):
-        up = token.upper()
+        up = token  # already cleaned + uppercased by write_ass
         w = font.getlength(up)
         add = w if not row else space_w + w
         if row and row_w + add > _MAX_LINE_W:
@@ -89,6 +94,13 @@ def write_ass(words, ass_path: str, group_size: int = 1,
     Captions are gapless so text is always on screen.
     Set animate=True to re-enable the scale-in pop effect."""
     words = _explode(words)
+    # Strip punctuation and uppercase up front; drop any tokens that become empty.
+    cleaned = []
+    for tok, s, e in words:
+        c = _PUNCT_RE.sub("", tok).upper()
+        if c:
+            cleaned.append((c, s, e))
+    words = cleaned
     if color is None:
         color = tone.COLORS["yellow"]
     font = _font(min(font_size, 90), bold=True)
@@ -103,7 +115,7 @@ def write_ass(words, ass_path: str, group_size: int = 1,
         end = words[i + 1][1] if i + 1 < n else w_end + end_pad
         if group_size <= 1:
             override = "{" + pos + (pop if animate else "") + "}"
-            text = override + word.upper()
+            text = override + word  # word is already cleaned + uppercased
             style = "Hi"
         else:
             g = i // group_size
