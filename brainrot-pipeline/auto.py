@@ -38,7 +38,7 @@ def _slug(text, n=40):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "video"
 
 
-def make_one(story, background, voice, rate, whisper_model, music, channel="StoryTime"):
+def make_one(story, background, voice, rate, whisper_model, music, channel="Redditstories"):
     slug = _slug(story["title"])
     audio = os.path.join(OUT_DIR, f"{slug}.mp3")
     ass = os.path.join(OUT_DIR, f"{slug}.ass")

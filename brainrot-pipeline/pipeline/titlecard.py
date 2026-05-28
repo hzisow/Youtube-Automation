@@ -47,7 +47,31 @@ def _wrap(draw, text, font, max_w):
     return lines
 
 
-def render_card(title: str, out_path: str, username: str = "StoryTime",
+def _draw_snoo(draw, ax, ay, size, bg=_ORANGE):
+    """Draw a simplified Reddit Snoo (white mascot) inside the avatar circle."""
+    cx, cy = ax + size / 2, ay + size / 2
+    s = size / 84.0
+    w = max(1, int(4 * s))
+    # Antenna.
+    tip = (cx + 13 * s, cy - 30 * s)
+    draw.line([(cx, cy - 8 * s), tip], fill=_WHITE, width=w)
+    r = 5 * s
+    draw.ellipse([tip[0] - r, tip[1] - r, tip[0] + r, tip[1] + r], fill=_WHITE)
+    # Ears.
+    er = 9 * s
+    for ex in (cx - 22 * s, cx + 22 * s):
+        draw.ellipse([ex - er, cy - 10 * s - er, ex + er, cy - 10 * s + er], fill=_WHITE)
+    # Head.
+    hw, hh = 25 * s, 21 * s
+    draw.ellipse([cx - hw, cy - hh + 6 * s, cx + hw, cy + hh + 8 * s], fill=_WHITE)
+    # Eyes (bg-colored cutouts).
+    eye = 5 * s
+    ey = cy + 3 * s
+    for px in (cx - 11 * s, cx + 11 * s):
+        draw.ellipse([px - eye, ey - eye, px + eye, ey + eye], fill=bg)
+
+
+def render_card(title: str, out_path: str, username: str = "Redditstories",
                 handle_color=_ORANGE) -> str:
     title_font = _font(46, bold=True)
     name_font = _font(34, bold=True)
@@ -68,15 +92,10 @@ def render_card(title: str, out_path: str, username: str = "StoryTime",
     draw = ImageDraw.Draw(img)
     draw.rounded_rectangle([0, 0, CARD_W, card_h], radius=RADIUS, fill=_WHITE)
 
-    # Avatar (colored circle with first initial).
+    # Avatar: orange circle with the Reddit Snoo mascot.
     ax, ay = PAD, PAD
     draw.ellipse([ax, ay, ax + AVATAR, ay + AVATAR], fill=handle_color)
-    initial = (username[:1] or "S").upper()
-    ifont = _font(44, bold=True)
-    ib = draw.textbbox((0, 0), initial, font=ifont)
-    draw.text((ax + (AVATAR - (ib[2] - ib[0])) / 2,
-               ay + (AVATAR - (ib[3] - ib[1])) / 2 - ib[1]),
-              initial, font=ifont, fill=_WHITE)
+    _draw_snoo(draw, ax, ay, AVATAR, bg=handle_color)
 
     # Username + verified check.
     nx = ax + AVATAR + 24

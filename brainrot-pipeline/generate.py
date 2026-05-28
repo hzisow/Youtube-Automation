@@ -23,7 +23,7 @@ def main() -> None:
     p.add_argument("--whisper-model", default="base", help="tiny/base/small/medium/large-v3")
     p.add_argument("--words-per-group", type=int, default=3)
     p.add_argument("--title", default=None, help="Title-card text (default: first sentence).")
-    p.add_argument("--channel", default="StoryTime", help="Name shown on the title card.")
+    p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
     p.add_argument("--no-card", action="store_true", help="Disable the Reddit-style title card.")
     args = p.parse_args()
 
