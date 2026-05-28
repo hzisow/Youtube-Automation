@@ -12,14 +12,22 @@ CHARS_PER_SECOND = 16
 
 
 def split_text(body: str, threshold_seconds: int = 70,
-               overlap_seconds: int = 8) -> list[str]:
-    """Return body chunks. One chunk unless narration exceeds threshold_seconds."""
+               overlap_seconds: int = 8, max_parts: int = 3) -> list[str]:
+    """Return body chunks. One chunk unless narration exceeds threshold_seconds.
+
+    Caps at `max_parts` (default 3) so a single huge story can't fragment into
+    a runaway number of videos; anything past that is trimmed.
+    """
     body = body.strip()
     est = len(body) / CHARS_PER_SECOND
     if est <= threshold_seconds:
         return [body]
 
-    num = math.ceil(est / threshold_seconds)
+    num = min(max_parts, math.ceil(est / threshold_seconds))
+    # If we capped, also trim the body so part lengths stay reasonable.
+    cap_chars = num * threshold_seconds * CHARS_PER_SECOND
+    if len(body) > cap_chars:
+        body = body[:cap_chars].rsplit(" ", 1)[0]
     budget = len(body) / num
     sentences = re.findall(r"[^.!?]+[.!?]?", body)
 
