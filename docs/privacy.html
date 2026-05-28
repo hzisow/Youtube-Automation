@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — RedditStories Uploader</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#0f0f0f;
+           color:#e6e6e6; max-width:780px; margin:0 auto; padding:40px 24px;
+           line-height:1.55; }
+    h1 { color:#fff; }
+    h2 { color:#fff; margin-top:32px; }
+    a { color:#5ac8fa; }
+    .muted { color:#888; font-size:13px; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="muted">Last updated: May 28, 2026</p>
+
+  <p>RedditStories Uploader ("the App") is a personal-use desktop tool that
+     publishes short videos to the user's own social-media accounts. This page
+     explains what data the App handles and how.</p>
+
+  <h2>1. What we collect</h2>
+  <p>The App does not run a server and does not collect, transmit, or store
+     any personal data on any third-party infrastructure that we control.
+     All processing happens locally on your computer.</p>
+  <p>The App holds the following data <strong>locally on your machine only</strong>:</p>
+  <ul>
+    <li><strong>OAuth tokens</strong> for the platforms you authorize (TikTok,
+        YouTube). Stored in <code>tiktok_token.json</code> and
+        <code>token.json</code> in the project folder.</li>
+    <li><strong>Generated media files</strong> (audio, captions, videos, title
+        cards) saved in the <code>output/</code> folder.</li>
+    <li><strong>A list of Reddit post IDs already used</strong>, stored in
+        <code>used.json</code>, to avoid duplicate uploads.</li>
+  </ul>
+
+  <h2>2. How we use platform APIs</h2>
+  <p>The App calls the official APIs of the platforms you authorize:</p>
+  <ul>
+    <li><strong>TikTok Content Posting API</strong> — to upload videos to your
+        own TikTok account, with the scopes you explicitly grant
+        (<code>video.upload</code> and/or <code>video.publish</code>).</li>
+    <li><strong>YouTube Data API v3</strong> — to upload videos to your own
+        YouTube channel under the <code>youtube.upload</code> scope.</li>
+    <li><strong>Reddit public JSON</strong> — read-only access to publicly
+        available posts. No Reddit account is required.</li>
+  </ul>
+  <p>The App requests only the minimum scopes needed to publish content. It
+     does not read your DMs, followers, friends list, or any private data
+     beyond what is required to post.</p>
+
+  <h2>3. Sharing</h2>
+  <p>We do not sell, share, or transmit your data to any third party. Tokens
+     and generated files never leave your machine.</p>
+
+  <h2>4. Retention &amp; deletion</h2>
+  <p>You may delete the App's local files at any time. To fully revoke the
+     App's access to your accounts:</p>
+  <ul>
+    <li><strong>TikTok:</strong> Settings &amp; privacy → Security &amp; permissions →
+        Manage app permissions → remove this app.</li>
+    <li><strong>YouTube/Google:</strong> visit
+        <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>
+        and revoke this app.</li>
+  </ul>
+
+  <h2>5. Children's privacy</h2>
+  <p>The App is not directed to children under 13 and does not knowingly
+     process data from anyone under 13.</p>
+
+  <h2>6. Contact</h2>
+  <p>Questions or requests: <a href="mailto:henryzisow@gmail.com">henryzisow@gmail.com</a>.</p>
+
+  <p class="muted">See also: <a href="terms.html">Terms of Service</a> ·
+     <a href="https://github.com/hzisow/vibecoding-projects">source code</a></p>
+</body>
+</html>
