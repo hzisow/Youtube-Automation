@@ -10,6 +10,8 @@ app" -> copy the client ID and expose it as REDDIT_CLIENT_ID.
 import base64
 import html
 import json
+import time
+import urllib.error
 import os
 import re
 import urllib.parse
@@ -64,6 +66,25 @@ def _oauth_token(client_id: str) -> str:
     return token
 
 
+def _urlopen_retrying(req, max_retries: int = 5, base_delay: float = 4.0):
+    """urllib.urlopen with Retry-After-aware backoff on 429/503."""
+    for attempt in range(max_retries):
+        try:
+            return urllib.request.urlopen(req, timeout=30)
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and attempt < max_retries - 1:
+                retry_after = 0
+                try:
+                    retry_after = int((e.headers.get("Retry-After") or "0").strip())
+                except (TypeError, ValueError):
+                    pass
+                delay = max(retry_after, base_delay * (2 ** attempt))
+                print(f"  reddit {e.code} rate-limited; sleeping {delay:.0f}s...")
+                time.sleep(delay)
+                continue
+            raise
+
+
 def load_cache(path: str) -> list:
     """Read a previously-saved stories_cache.json (or return [])."""
     if not os.path.exists(path):
@@ -96,13 +117,15 @@ def fetch_stories(subreddit: str = "AmItheAsshole", listing: str = "top",
 
     stories = []
     after = None
-    for _ in range(max_pages):
+    for page in range(max_pages):
+        if page > 0:
+            time.sleep(1.5)  # be kind between paginated requests
         params = {"t": timeframe, "limit": str(min(limit, 100)), "raw_json": "1"}
         if after:
             params["after"] = after
         url = f"{host}/r/{subreddit}/{listing}.json?" + urllib.parse.urlencode(params)
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _urlopen_retrying(req) as resp:
             data = json.load(resp)
         children = data["data"]["children"]
         if not children:

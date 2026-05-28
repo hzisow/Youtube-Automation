@@ -30,10 +30,10 @@ def main():
     p.add_argument("--timeframes", nargs="+",
                    default=["week", "month", "year", "all"],
                    help="Reddit timeframes to scrape across.")
-    p.add_argument("--pages", type=int, default=5,
+    p.add_argument("--pages", type=int, default=3,
                    help="Pages per (subreddit, timeframe). Each page = 100 posts.")
-    p.add_argument("--sleep", type=float, default=1.0,
-                   help="Seconds to wait between requests.")
+    p.add_argument("--sleep", type=float, default=3.0,
+                   help="Seconds to wait between (subreddit, timeframe) pulls.")
     args = p.parse_args()
 
     existing = reddit.load_cache(CACHE)
