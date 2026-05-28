@@ -96,8 +96,8 @@ def main():
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
     p.add_argument("--rate", default="+28%")
     p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
-    p.add_argument("--max-seconds", type=int, default=70,
-                   help="Only split into Part 1/Part 2/... if narration exceeds this (default 70s = 1:10).")
+    p.add_argument("--max-seconds", type=int, default=120,
+                   help="Only split into Part 1/Part 2/... if narration exceeds this (default 120s = 2:00).")
     p.add_argument("--min-seconds", type=int, default=55,
                    help="Skip stories whose narration would be shorter than this.")
     p.add_argument("--cache", default=None,
