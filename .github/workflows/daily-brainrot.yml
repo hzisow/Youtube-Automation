@@ -23,12 +23,18 @@ name: Daily Brainrot Videos
 #  - Flip ENABLE_YOUTUBE / ENABLE_TIKTOK below once the matching secrets exist.
 
 on:
+  # Five staggered runs to hit TikTok's morning + evening peaks (US-centric).
+  # Each scheduled run uploads 1 video -> 5/day total, spread across the day.
   schedule:
-    - cron: "0 14 * * *"   # 14:00 UTC daily
+    - cron: "0 13 * * *"   #  9:00 AM ET - morning commute
+    - cron: "0 16 * * *"   # 12:00 PM ET - lunch
+    - cron: "0 19 * * *"   #  3:00 PM ET - after school
+    - cron: "0 23 * * *"   #  7:00 PM ET - evening peak
+    - cron: "0  2 * * *"   # 10:00 PM ET - late peak
   workflow_dispatch:
     inputs:
       count:
-        description: "How many stories to render (5 = safe under YouTube's ~6/day quota)"
+        description: "Bulk count for manual runs (scheduled runs upload 1 each)"
         default: "5"
 
 env:
@@ -98,7 +104,7 @@ jobs:
 
       - name: Generate and upload
         run: |
-          COUNT="${{ github.event.inputs.count || '5' }}"
+          COUNT="${{ github.event.inputs.count || '1' }}"
           FLAGS="--count $COUNT --cache stories_cache.json"
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
