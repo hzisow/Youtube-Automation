@@ -16,7 +16,7 @@ import os
 import random
 import re
 
-from pipeline import reddit, tts, captions, video, titlecard, tone, split, sfx
+from pipeline import reddit, tts, captions, video, titlecard, tone, split, sfx, descriptions
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -160,18 +160,11 @@ def main():
             for n, out in enumerate(outs, 1):
                 print(f"Rendered -> {out}")
                 if uploader:
-                    suffix = f" (Part {n})" if len(outs) > 1 else ""
-                    title = f"{story['title']}{suffix}"
-                    if "#shorts" not in title.lower() and len(title) <= 88:
-                        title = f"{title} #Shorts"
-                    desc = f"{story['body']}\n\n#Shorts #reddit #story #storytime #brainrot"
-                    uploader.upload(out, title, desc,
-                                    ["shorts", "reddit", "story", "storytime", "brainrot"],
-                                    privacy=args.privacy)
+                    yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs))
+                    uploader.upload(out, yt_title, yt_desc, yt_tags, privacy=args.privacy)
                 if tiktok:
-                    suffix = f" (Part {n})" if len(outs) > 1 else ""
-                    tt_title = f"{story['title']}{suffix} #fyp #reddit #story"
-                    tiktok.upload(out, tt_title[:150], mode=args.tiktok_mode)
+                    tt_caption = descriptions.tiktok(story, n, len(outs))
+                    tiktok.upload(out, tt_caption, mode=args.tiktok_mode)
             used.add(story["id"])
             _save_used(used)
             made += 1
