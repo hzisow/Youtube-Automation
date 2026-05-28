@@ -108,6 +108,9 @@ def main():
     p.add_argument("--tiktok", action="store_true", help="Also upload to TikTok.")
     p.add_argument("--tiktok-mode", default="inbox", choices=["inbox", "direct"],
                    help="inbox = TikTok drafts (un-audited apps); direct = publish.")
+    p.add_argument("--tiktok-privacy", default="SELF_ONLY",
+                   choices=["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"],
+                   help="Direct-post visibility (un-audited apps are forced to SELF_ONLY).")
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -164,7 +167,8 @@ def main():
                     uploader.upload(out, yt_title, yt_desc, yt_tags, privacy=args.privacy)
                 if tiktok:
                     tt_caption = descriptions.tiktok(story, n, len(outs))
-                    tiktok.upload(out, tt_caption, mode=args.tiktok_mode)
+                    tiktok.upload(out, tt_caption, mode=args.tiktok_mode,
+                                  privacy=args.tiktok_privacy)
             used.add(story["id"])
             _save_used(used)
             made += 1
