@@ -4,3 +4,5 @@ pillow>=10.0.0
 # For upload.py (YouTube Data API v3 auto-upload)
 google-api-python-client>=2.0.0
 google-auth-oauthlib>=1.0.0
+# For tiktok_upload.py (TikTok Content Posting API)
+requests>=2.20.0

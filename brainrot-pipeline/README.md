@@ -74,6 +74,21 @@ python upload.py --file output/video.mp4 --title "AITA for..." \
 units against a 10,000/day default → ~6 uploads/day per project. No legitimate
 tool gives truly *unlimited* free uploads (see the chat notes).
 
+## Auto-upload to TikTok
+
+Uses TikTok's official Content Posting API (free). See the header of
+`tiktok_upload.py` for the one-time developer-app + OAuth setup, then:
+
+```bash
+python tiktok_upload.py --file output/video.mp4 --title "AITA for..." --mode inbox
+```
+
+- **inbox** (default): uploads to your TikTok **drafts** — you tap Post in the
+  app. Works for un-audited apps, so you can start today.
+- **direct**: publishes straight to your profile. Needs the `video.publish`
+  scope and an **audited** app (TikTok review ~2–6 weeks); un-audited apps may
+  only post privately (SELF_ONLY). Limit: 25 posts/account/day.
+
 ## Full automation (fetch → render → upload)
 
 `auto.py` pulls fresh stories straight from Reddit's free public JSON (no API

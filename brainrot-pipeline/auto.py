@@ -100,6 +100,9 @@ def main():
                    help="Optional background music file (off by default).")
     p.add_argument("--upload", action="store_true", help="Upload finished videos to YouTube.")
     p.add_argument("--privacy", default="unlisted", choices=["public", "unlisted", "private"])
+    p.add_argument("--tiktok", action="store_true", help="Also upload to TikTok.")
+    p.add_argument("--tiktok-mode", default="inbox", choices=["inbox", "direct"],
+                   help="inbox = TikTok drafts (un-audited apps); direct = publish.")
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -125,6 +128,9 @@ def main():
     uploader = None
     if args.upload:
         import upload as uploader  # imported lazily so render-only runs need no Google libs
+    tiktok = None
+    if args.tiktok:
+        import tiktok_upload as tiktok  # lazy import so non-TikTok runs need no deps
 
     # Background music is off by default; opt in with --music path/to/track.mp3.
     music = args.music
@@ -154,6 +160,10 @@ def main():
                     uploader.upload(out, title, desc,
                                     ["shorts", "reddit", "story", "storytime", "brainrot"],
                                     privacy=args.privacy)
+                if tiktok:
+                    suffix = f" (Part {n})" if len(outs) > 1 else ""
+                    tt_title = f"{story['title']}{suffix} #fyp #reddit #story"
+                    tiktok.upload(out, tt_title[:150], mode=args.tiktok_mode)
             used.add(story["id"])
             _save_used(used)
             made += 1
