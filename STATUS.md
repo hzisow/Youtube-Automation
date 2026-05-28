@@ -81,14 +81,11 @@ All 4 JSON files are git-ignored locally; never commit them.
 - ✅ OAuth consent screen updated to use `redditstories.henryzisow.com` URLs and `henryzisow.com` as authorized domain
 - ✅ CNAME `redditstories.henryzisow.com → hzisow.github.io` configured at GoDaddy
 - ✅ `docs/CNAME` file pushed
-- ⏳ **Currently waiting on:** GitHub Pages provisioning the Let's Encrypt cert for the new subdomain.
-  Browser still shows a cert warning on `https://redditstories.henryzisow.com/`. Google's verifiers complained
-  "URL unresponsive" on the last submission.
-- ⏳ Once HTTPS goes green (check at github.com/hzisow/Vibecoding-Projects/settings/pages):
-  1. Re-test both URLs (`/` and `/privacy.html`) load without warnings.
-  2. In the Google Cloud Console → Verification Center → click **Prepare for verification** / resubmit.
-  3. Google may ask for a demo video — see "Demo video script" below.
-  4. Wait 2–6 weeks for approval. Once approved, refresh tokens persist indefinitely.
+- ✅ GitHub Pages HTTPS cert provisioned; both `/` and `/privacy.html` load cleanly
+- ⏳ **Currently waiting on:** Google's review of the resubmitted verification.
+  Typical wait 2–6 weeks. Google may email asking for clarification or a demo video
+  (see "Demo video script" below). Once approved, refresh tokens persist indefinitely
+  and the weekly re-auth routine stops being needed.
 
 ### TikTok production audit
 **Goal:** flip TikTok from drafts to direct public posting.
