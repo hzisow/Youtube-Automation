@@ -66,6 +66,20 @@ def _layout(chunk, active, font, space_w):
     return "\\N".join(out)
 
 
+def _explode(words):
+    """Defensive: split any multi-word entry into single-word entries."""
+    out = []
+    for token, start, end in words:
+        pieces = token.split()
+        if len(pieces) <= 1:
+            out.append((token, start, end))
+            continue
+        dt = (end - start) / len(pieces)
+        for k, p in enumerate(pieces):
+            out.append((p, start + k * dt, start + (k + 1) * dt))
+    return out
+
+
 def write_ass(words, ass_path: str, group_size: int = 1,
               font_name: str = DEFAULT_FONT, font_size: int = DEFAULT_SIZE,
               color: str = None, y: int = DEFAULT_Y, animate: bool = True,
@@ -73,6 +87,7 @@ def write_ass(words, ass_path: str, group_size: int = 1,
     """Write an ASS file. With group_size=1 (default) each word pops in one at a
     time; larger groups show a short phrase with the active word highlighted.
     Captions are gapless so text is always on screen."""
+    words = _explode(words)
     if color is None:
         color = tone.COLORS["yellow"]
     font = _font(min(font_size, 90), bold=True)

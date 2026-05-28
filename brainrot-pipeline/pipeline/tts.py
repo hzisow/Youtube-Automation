@@ -25,10 +25,20 @@ async def _synth(text, out_path, voice, rate, pitch):
                     f.write(data)
             elif ctype == "WordBoundary" or ("offset" in chunk and "text" in chunk):
                 token = (chunk.get("text") or "").strip()
-                if token:
-                    start = chunk.get("offset", 0) / 1e7   # 100ns units -> seconds
-                    end = start + chunk.get("duration", 0) / 1e7
+                if not token:
+                    continue
+                start = chunk.get("offset", 0) / 1e7
+                end = start + chunk.get("duration", 0) / 1e7
+                # Some edge-tts builds emit phrase-level chunks. Split into
+                # individual words with proportional timings so captions can
+                # actually appear one at a time.
+                pieces = token.split()
+                if len(pieces) == 1:
                     words.append((token, start, end))
+                else:
+                    dt = (end - start) / len(pieces)
+                    for k, piece in enumerate(pieces):
+                        words.append((piece, start + k * dt, start + (k + 1) * dt))
     return words
 
 
