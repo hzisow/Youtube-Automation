@@ -15,7 +15,7 @@ import json
 import os
 import re
 
-from pipeline import reddit, tts, captions, video
+from pipeline import reddit, tts, captions, video, titlecard
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -38,16 +38,20 @@ def _slug(text, n=40):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "video"
 
 
-def make_one(story, background, voice, rate, whisper_model, music):
+def make_one(story, background, voice, rate, whisper_model, music, channel="StoryTime"):
     slug = _slug(story["title"])
     audio = os.path.join(OUT_DIR, f"{slug}.mp3")
     ass = os.path.join(OUT_DIR, f"{slug}.ass")
+    card = os.path.join(OUT_DIR, f"{slug}.png")
     out = os.path.join(OUT_DIR, f"{slug}.mp4")
 
     tts.synthesize(story["text"], audio, voice=voice, rate=rate)
     words = captions.transcribe_words(audio, model_size=whisper_model)
     captions.write_ass(words, ass)
-    video.render(background, audio, ass, out, music=music)
+    titlecard.render_card(story["title"], card, username=channel)
+    card_end = titlecard.title_end_time(words, story["title"])
+    video.render(background, audio, ass, out, music=music,
+                 card=card, card_end=card_end)
     return out
 
 
