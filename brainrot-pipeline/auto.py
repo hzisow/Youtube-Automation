@@ -17,7 +17,7 @@ import random
 import re
 
 from pipeline import (reddit, tts, captions, video, titlecard, tone, split,
-                      sfx, descriptions, redditpost, scroll)
+                      sfx, descriptions, redditpost, scroll, tweetcard, music)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -55,7 +55,8 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
         print("  edge-tts word timings unusable; falling back to Whisper...")
         words = captions.transcribe_words(audio)
 
-    if opts.get("style") == "screenshot" and story is not None:
+    style = opts.get("style")
+    if style == "screenshot" and story is not None:
         post_png = os.path.join(OUT_DIR, f"{slug}-post.png")
         post_path, anchors, img_h = redditpost.render_post(
             story.get("subreddit", "Reddit"), opts["channel"],
@@ -67,6 +68,20 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
         video.render_screenshot(opts["background"], audio, post_path,
                                 scroll_expr, out, ding=opts["ding"],
                                 music=opts["music"])
+        return out
+    if style == "tweet" and story is not None:
+        post_png = os.path.join(OUT_DIR, f"{slug}-tweet.png")
+        display, handle = tweetcard.handle_for(opts["channel"])
+        post_path, anchors, img_h = tweetcard.render_card(
+            handle, display, f"{story['title']}. {story['body']}",
+            post_png,
+        )
+        scroll_expr = scroll.build_scroll_expr(
+            anchors, words, viewport_h=1000, image_h=img_h,
+        )
+        bg = opts.get("animal_background") or opts["background"]
+        video.render_screenshot(bg, audio, post_path, scroll_expr, out,
+                                ding=opts["ding"], music=opts["music"])
         return out
 
     ass = os.path.join(OUT_DIR, f"{slug}.ass")
@@ -120,13 +135,23 @@ def main():
     p.add_argument("--cache", default=None,
                    help="Path to stories_cache.json. If set, read from cache "
                         "instead of fetching Reddit live (needed for cloud runs).")
-    p.add_argument("--style", default="story", choices=["story", "screenshot"],
+    p.add_argument("--style", default="story",
+                   choices=["story", "screenshot", "tweet"],
                    help="story = Snoo card + MrBeast captions over gameplay; "
                         "screenshot = full Reddit post scrolls on top half, "
-                        "gameplay on bottom half.")
+                        "gameplay on bottom half; "
+                        "tweet = X-style card scrolls, animal/calm bg below.")
+    p.add_argument("--animal-background", default=None,
+                   help="Optional second background clip used for the tweet "
+                        "style (cute animals, b-roll). Falls back to --background.")
     p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
     p.add_argument("--music", dest="music", default=None,
-                   help="Optional background music file (off by default).")
+                   help="Path to a specific music file. If omitted, auto-picks "
+                        "from assets/music/<mood>/ based on the story's tone.")
+    p.add_argument("--music-dir", default=os.path.join(HERE, "assets", "music"),
+                   help="Folder containing mood subfolders for auto music.")
+    p.add_argument("--no-music", action="store_true",
+                   help="Disable background music entirely.")
     p.add_argument("--upload", action="store_true", help="Upload finished videos to YouTube.")
     p.add_argument("--privacy", default="unlisted", choices=["public", "unlisted", "private"])
     p.add_argument("--tiktok", action="store_true", help="Also upload to TikTok.")
@@ -171,14 +196,13 @@ def main():
     if args.tiktok:
         import tiktok_upload as tiktok  # lazy import so non-TikTok runs need no deps
 
-    # Background music is off by default; opt in with --music path/to/track.mp3.
-    music = args.music
     ding = None if args.no_ding else sfx.ensure_ding(os.path.join(HERE, "assets", "ding.wav"))
 
     opts = {
         "background": args.background, "voice": args.voice, "rate": args.rate,
-        "channel": args.channel, "music": music, "ding": ding,
+        "channel": args.channel, "ding": ding,
         "max_seconds": args.max_seconds, "style": args.style,
+        "animal_background": args.animal_background,
     }
 
     made = 0
@@ -187,6 +211,18 @@ def main():
         if made >= args.count or quota_exhausted:
             break
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
+
+        # Pick a vibe-matched track per story (unless --music or --no-music).
+        if args.no_music:
+            opts["music"] = None
+        elif args.music:
+            opts["music"] = args.music
+        else:
+            mood = tone.mood_for(story.get("subreddit"), story["title"])
+            track = music.pick_track(mood, args.music_dir)
+            opts["music"] = track
+            if track:
+                print(f"  music ({mood}): {os.path.basename(track)}")
 
         # Render is its own try/except: a render failure skips this story but
         # doesn't burn through the rest of the cache.

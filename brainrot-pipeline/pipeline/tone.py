@@ -49,3 +49,43 @@ def color_for(subreddit: str | None, title: str = "") -> str:
         if any(w in low for w in words):
             return COLORS[tone]
     return COLORS["yellow"]
+
+
+# subreddit -> music mood folder name (assets/music/<mood>/*.mp3).
+_SUBREDDIT_MOOD = {
+    "prorevenge": "dramatic",
+    "pettyrevenge": "funny",
+    "maliciouscompliance": "funny",
+    "nosleep": "mystery",
+    "letsnotmeet": "mystery",
+    "amitheasshole": "dramatic",
+    "aitah": "dramatic",
+    "tifu": "funny",
+    "confession": "sad",
+    "trueoffmychest": "sad",
+    "entitledparents": "funny",
+    "relationship_advice": "sad",
+    "todayilearned": "chill",
+    "interestingasfuck": "chill",
+}
+
+_MOOD_KEYWORDS = {
+    "sad":     ["died", "death", "lonely", "cry", "regret", "loss", "grief"],
+    "dramatic": ["revenge", "betray", "cheat", "fired", "caught", "stalk"],
+    "funny":   ["wings", "weird", "lol", "haha", "stupid", "goofy", "balloon"],
+    "hype":    ["won", "epic", "savage", "destroy", "legend"],
+    "mystery": ["creepy", "scary", "haunt", "ghost", "stalker"],
+}
+
+
+def mood_for(subreddit: str | None, title: str = "") -> str:
+    """Return a music-mood folder name."""
+    if subreddit:
+        m = _SUBREDDIT_MOOD.get(subreddit.lower().lstrip("r/"))
+        if m:
+            return m
+    low = title.lower()
+    for mood, words in _MOOD_KEYWORDS.items():
+        if any(w in low for w in words):
+            return mood
+    return "chill"

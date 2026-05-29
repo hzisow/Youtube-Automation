@@ -94,17 +94,33 @@ jobs:
           printf '%s' "$TIKTOK_CLIENT_JSON" > tiktok_client.json
           printf '%s' "$TIKTOK_TOKEN_JSON" > tiktok_token.json
 
+      - name: Fetch optional animal background (for tweet style)
+        env:
+          ANIMAL_BG_URL: ${{ secrets.ANIMAL_BG_URL }}
+        run: |
+          if [ -n "$ANIMAL_BG_URL" ]; then
+            curl -L "$ANIMAL_BG_URL" -o assets/animal_bg.mp4 || true
+          fi
+
       - name: Generate and upload
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
-          # Alternate styles across the day: morning + afternoon = story,
-          # midday + evening + late = screenshot (line-by-line scroll).
+          # Rotate styles across the 5 daily slots for visual variety:
+          #   13 UTC (9 AM ET)  -> story        (Snoo card + captions)
+          #   16 UTC (12 PM ET) -> screenshot   (Reddit post scrolls)
+          #   19 UTC (3 PM ET)  -> tweet        (X-style card scrolls)
+          #   23 UTC (7 PM ET)  -> screenshot
+          #   02 UTC (10 PM ET) -> story
           HOUR=$(date -u +%H)
           case "$HOUR" in
-            13|19) STYLE="story" ;;
+            13|02) STYLE="story" ;;
+            19)    STYLE="tweet" ;;
             *)     STYLE="screenshot" ;;
           esac
           FLAGS="--count $COUNT --style $STYLE --cache stories_cache.json"
+          if [ -f assets/animal_bg.mp4 ]; then
+            FLAGS="$FLAGS --animal-background assets/animal_bg.mp4"
+          fi
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
           python auto.py $FLAGS

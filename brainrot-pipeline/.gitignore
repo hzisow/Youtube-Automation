@@ -2,6 +2,13 @@ output/*
 !output/.gitkeep
 assets/*
 !assets/.gitkeep
+!assets/music/
+assets/music/*/*.mp3
+assets/music/*/*.m4a
+assets/music/*/*.wav
+assets/music/*/*.ogg
+assets/music/*/*.aac
+!assets/music/*/README.txt
 client_secret.json
 token.json
 tiktok_client.json
