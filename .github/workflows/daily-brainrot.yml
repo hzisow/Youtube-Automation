@@ -36,6 +36,14 @@ on:
       count:
         description: "Bulk count for manual runs (scheduled runs upload 1 each)"
         default: "1"
+      style:
+        description: "Video style to render (manual runs only; scheduled runs auto-rotate)"
+        type: choice
+        default: "auto"
+        options:
+          - "auto"
+          - "story"
+          - "explainer"
 
 env:
   ENABLE_YOUTUBE: "true"
@@ -107,21 +115,25 @@ jobs:
           PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
-          # Rotate styles across the 5 daily slots for visual variety:
-          #   13 UTC (9 AM ET)  -> story        (Snoo card + captions)
-          #   16 UTC (12 PM ET) -> screenshot   (Reddit post scrolls)
-          #   19 UTC (3 PM ET)  -> tweet        (X-style card scrolls)
-          #   23 UTC (7 PM ET)  -> explainer    (Pexels b-roll + captions)
-          #   02 UTC (10 PM ET) -> screenshot
-          HOUR=$(date -u +%H)
-          case "$HOUR" in
-            13)    STYLE="story" ;;
-            16)    STYLE="screenshot" ;;
-            19)    STYLE="tweet" ;;
-            23)    STYLE="explainer" ;;
-            02)    STYLE="screenshot" ;;
-            *)     STYLE="story" ;;
-          esac
+          MANUAL_STYLE="${{ github.event.inputs.style }}"
+          # Rotate between the two known-good styles across the 5 daily slots:
+          #   13 UTC (9 AM ET)  -> story
+          #   16 UTC (12 PM ET) -> explainer
+          #   19 UTC (3 PM ET)  -> story
+          #   23 UTC (7 PM ET)  -> explainer
+          #   02 UTC (10 PM ET) -> story
+          # screenshot + tweet (scrolling Reddit/Twitter card) are intentionally
+          # removed -- their visuals didn't land. The code still lives in the
+          # repo if we want to revisit it.
+          if [ -n "$MANUAL_STYLE" ] && [ "$MANUAL_STYLE" != "auto" ]; then
+            STYLE="$MANUAL_STYLE"
+          else
+            HOUR=$(date -u +%H)
+            case "$HOUR" in
+              16|23) STYLE="explainer" ;;
+              *)     STYLE="story" ;;
+            esac
+          fi
           FLAGS="--count $COUNT --style $STYLE --cache stories_cache.json"
           if [ -f assets/animal_bg.mp4 ]; then
             FLAGS="$FLAGS --animal-background assets/animal_bg.mp4"
