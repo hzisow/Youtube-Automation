@@ -75,6 +75,18 @@ All 4 JSON files are git-ignored locally; never commit them.
 
 ## What's pending / in progress
 
+### Music library (auto vibe-matching)
+**Goal:** populate `assets/music/<mood>/` so videos get a tone-matched track.
+- ✅ Folder structure + mood mapping (`tone.mood_for`) committed.
+- ✅ Pipeline gracefully skips music when folder is empty (no crash).
+- ✅ `fetch_music.py` helper script for bulk-downloading from Pixabay.
+- ❌ **Not yet populated.** To activate:
+  1. Get a free key at https://pixabay.com/api/docs/
+  2. `cd brainrot-pipeline && export PIXABAY_KEY=...`
+  3. `python fetch_music.py` (downloads ~5 tracks/mood = ~30 tracks)
+  4. `git add assets/music && git commit -m "seed music library" && git push`
+  Files in `assets/music/<mood>/*.mp3` are git-tracked (gitignore allows them).
+
 ### YouTube OAuth verification (Google)
 **Goal:** publish the app so refresh tokens stop expiring every 7 days.
 
