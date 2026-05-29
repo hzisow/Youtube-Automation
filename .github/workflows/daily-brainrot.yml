@@ -103,19 +103,24 @@ jobs:
           fi
 
       - name: Generate and upload
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
           # Rotate styles across the 5 daily slots for visual variety:
           #   13 UTC (9 AM ET)  -> story        (Snoo card + captions)
           #   16 UTC (12 PM ET) -> screenshot   (Reddit post scrolls)
           #   19 UTC (3 PM ET)  -> tweet        (X-style card scrolls)
-          #   23 UTC (7 PM ET)  -> screenshot
-          #   02 UTC (10 PM ET) -> story
+          #   23 UTC (7 PM ET)  -> explainer    (Pexels b-roll + captions)
+          #   02 UTC (10 PM ET) -> screenshot
           HOUR=$(date -u +%H)
           case "$HOUR" in
-            13|02) STYLE="story" ;;
+            13)    STYLE="story" ;;
+            16)    STYLE="screenshot" ;;
             19)    STYLE="tweet" ;;
-            *)     STYLE="screenshot" ;;
+            23)    STYLE="explainer" ;;
+            02)    STYLE="screenshot" ;;
+            *)     STYLE="story" ;;
           esac
           FLAGS="--count $COUNT --style $STYLE --cache stories_cache.json"
           if [ -f assets/animal_bg.mp4 ]; then

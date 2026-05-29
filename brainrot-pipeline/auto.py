@@ -17,7 +17,8 @@ import random
 import re
 
 from pipeline import (reddit, tts, captions, video, titlecard, tone, split,
-                      sfx, descriptions, redditpost, scroll, tweetcard, music)
+                      sfx, descriptions, redditpost, scroll, tweetcard, music,
+                      broll)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -68,6 +69,18 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
         video.render_screenshot(opts["background"], audio, post_path,
                                 scroll_expr, out, ding=opts["ding"],
                                 music=opts["music"])
+        return out
+    if style == "explainer":
+        # Topic-matched B-roll + centered MrBeast captions, no card.
+        ass = os.path.join(OUT_DIR, f"{slug}.ass")
+        captions.write_ass(words, ass, color=color, y=960)
+        bg = opts["background"]
+        clip = os.path.join(OUT_DIR, f"{slug}-broll.mp4")
+        fetched = broll.fetch_clip(story["title"] if story else card_title, clip)
+        if fetched:
+            bg = fetched
+        video.render(bg, audio, ass, out, music=opts["music"],
+                     ding=opts["ding"], card=None, card_end=0)
         return out
     if style == "tweet" and story is not None:
         post_png = os.path.join(OUT_DIR, f"{slug}-tweet.png")
@@ -136,11 +149,13 @@ def main():
                    help="Path to stories_cache.json. If set, read from cache "
                         "instead of fetching Reddit live (needed for cloud runs).")
     p.add_argument("--style", default="story",
-                   choices=["story", "screenshot", "tweet"],
+                   choices=["story", "screenshot", "tweet", "explainer"],
                    help="story = Snoo card + MrBeast captions over gameplay; "
                         "screenshot = full Reddit post scrolls on top half, "
                         "gameplay on bottom half; "
-                        "tweet = X-style card scrolls, animal/calm bg below.")
+                        "tweet = X-style card scrolls, animal/calm bg below; "
+                        "explainer = full-screen topic-matched B-roll from "
+                        "Pexels (needs PEXELS_KEY) + centered captions.")
     p.add_argument("--animal-background", default=None,
                    help="Optional second background clip used for the tweet "
                         "style (cute animals, b-roll). Falls back to --background.")
