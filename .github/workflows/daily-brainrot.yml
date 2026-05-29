@@ -97,7 +97,14 @@ jobs:
       - name: Generate and upload
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
-          FLAGS="--count $COUNT --cache stories_cache.json"
+          # Alternate styles across the day: morning + afternoon = story,
+          # midday + evening + late = screenshot (line-by-line scroll).
+          HOUR=$(date -u +%H)
+          case "$HOUR" in
+            13|19) STYLE="story" ;;
+            *)     STYLE="screenshot" ;;
+          esac
+          FLAGS="--count $COUNT --style $STYLE --cache stories_cache.json"
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
           python auto.py $FLAGS

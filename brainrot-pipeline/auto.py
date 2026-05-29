@@ -16,7 +16,8 @@ import os
 import random
 import re
 
-from pipeline import reddit, tts, captions, video, titlecard, tone, split, sfx, descriptions
+from pipeline import (reddit, tts, captions, video, titlecard, tone, split,
+                      sfx, descriptions, redditpost, scroll)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -45,16 +46,31 @@ def _slug(text, n=40):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "video"
 
 
-def _make_video(text, card_title, time_title, slug, color, opts):
+def _make_video(text, card_title, time_title, slug, color, opts, story=None):
     audio = os.path.join(OUT_DIR, f"{slug}.mp3")
-    ass = os.path.join(OUT_DIR, f"{slug}.ass")
-    card = os.path.join(OUT_DIR, f"{slug}.png")
     out = os.path.join(OUT_DIR, f"{slug}.mp4")
 
     words = tts.synthesize(text, audio, voice=opts["voice"], rate=opts["rate"])
     if not captions.timings_ok(words):
         print("  edge-tts word timings unusable; falling back to Whisper...")
         words = captions.transcribe_words(audio)
+
+    if opts.get("style") == "screenshot" and story is not None:
+        post_png = os.path.join(OUT_DIR, f"{slug}-post.png")
+        post_path, anchors, img_h = redditpost.render_post(
+            story.get("subreddit", "Reddit"), opts["channel"],
+            story["title"], story["body"], post_png,
+        )
+        scroll_expr = scroll.build_scroll_expr(
+            anchors, words, viewport_h=1000, image_h=img_h,
+        )
+        video.render_screenshot(opts["background"], audio, post_path,
+                                scroll_expr, out, ding=opts["ding"],
+                                music=opts["music"])
+        return out
+
+    ass = os.path.join(OUT_DIR, f"{slug}.ass")
+    card = os.path.join(OUT_DIR, f"{slug}.png")
     captions.write_ass(words, ass, color=color)
     titlecard.render_card(card_title, card, username=opts["channel"])
     if time_title:
@@ -81,7 +97,8 @@ def make_one(story, opts):
             time_title = story["title"] if i == 1 else None
         else:
             card_title, slug, text, time_title = story["title"], base, story["text"], story["title"]
-        outs.append(_make_video(text, card_title, time_title, slug, color, opts))
+        outs.append(_make_video(text, card_title, time_title, slug, color,
+                                opts, story=story))
     return outs
 
 
@@ -103,6 +120,10 @@ def main():
     p.add_argument("--cache", default=None,
                    help="Path to stories_cache.json. If set, read from cache "
                         "instead of fetching Reddit live (needed for cloud runs).")
+    p.add_argument("--style", default="story", choices=["story", "screenshot"],
+                   help="story = Snoo card + MrBeast captions over gameplay; "
+                        "screenshot = full Reddit post scrolls on top half, "
+                        "gameplay on bottom half.")
     p.add_argument("--no-ding", action="store_true", help="Disable the intro ding.")
     p.add_argument("--music", dest="music", default=None,
                    help="Optional background music file (off by default).")
@@ -157,7 +178,7 @@ def main():
     opts = {
         "background": args.background, "voice": args.voice, "rate": args.rate,
         "channel": args.channel, "music": music, "ding": ding,
-        "max_seconds": args.max_seconds,
+        "max_seconds": args.max_seconds, "style": args.style,
     }
 
     made = 0
