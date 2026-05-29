@@ -39,12 +39,15 @@ def _wrap_words(draw, text, font, max_w):
 
 
 def render_post(subreddit: str, username: str, title: str, body: str,
-                out_path: str, width: int = 1080) -> tuple[str, list, int]:
+                out_path: str, width: int = 1080,
+                min_height: int = 1000) -> tuple[str, list, int]:
     """Render the post; return (path, anchors, image_height).
 
     anchors = [(global_word_idx, y_center_of_line), ...] one entry per line
     of the rendered title+body, in spoken order. global_word_idx is the
     index in the title-then-body spoken-words sequence.
+    Image height is padded to >= min_height so a fixed-size viewport
+    can always crop it.
     """
     title_font = _font(56, bold=True)
     body_font = _font(44, bold=False)
@@ -69,6 +72,7 @@ def render_post(subreddit: str, username: str, title: str, body: str,
     footer_h = 56
     total_h = (PAD + header_h + HEADER_GAP + title_h + TITLE_GAP
                + body_h + FOOTER_GAP + footer_h + PAD)
+    total_h = max(total_h, min_height)
 
     img = Image.new("RGBA", (width, total_h), _WHITE)
     draw = ImageDraw.Draw(img)

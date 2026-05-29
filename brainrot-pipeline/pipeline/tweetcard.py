@@ -47,10 +47,12 @@ def _wrap_words(draw, text, font, max_w):
 
 
 def render_card(handle: str, display_name: str, body: str,
-                out_path: str, width: int = 1080) -> tuple[str, list, int]:
+                out_path: str, width: int = 1080,
+                min_height: int = 1000) -> tuple[str, list, int]:
     """Render the tweet card; return (path, anchors, image_height).
 
     anchors = [(global_word_idx, y_center), ...] one per rendered body line.
+    Padded to >= min_height so the scrolling viewport can always crop it.
     """
     body_font = _font(52, bold=False)
     name_font = _font(38, bold=True)
@@ -68,6 +70,7 @@ def render_card(handle: str, display_name: str, body: str,
     footer_h = 50
     total_h = (PAD + header_h + HEADER_GAP + body_h + FOOTER_GAP
                + footer_h + PAD)
+    total_h = max(total_h, min_height)
 
     img = Image.new("RGBA", (width, total_h), _WHITE)
     draw = ImageDraw.Draw(img)
