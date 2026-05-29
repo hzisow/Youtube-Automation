@@ -18,7 +18,7 @@ import re
 
 from pipeline import (reddit, tts, captions, video, titlecard, tone, split,
                       sfx, descriptions, redditpost, scroll, tweetcard, music,
-                      broll)
+                      broll, facts)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 USED_DB = os.path.join(HERE, "used.json")
@@ -113,6 +113,14 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
 def make_one(story, opts):
     """Render a story; returns one or more output paths (Part 1/2/... if long)."""
     color = tone.color_for(story.get("subreddit"), story["title"])
+    style = opts.get("style")
+    if style == "explainer":
+        # Narrate as "Did you know that ...? <body>" instead of telling the
+        # raw Reddit story. Single-part only -- facts are short by nature.
+        base = _slug(story["title"])
+        text = facts.to_narration(story["title"], story.get("body", ""))
+        return [_make_video(text, story["title"], None, base, color,
+                            opts, story=story)]
     parts = split.split_text(story["body"], threshold_seconds=opts["max_seconds"])
     multi = len(parts) > 1
     base = _slug(story["title"])
@@ -195,13 +203,27 @@ def main():
             except Exception as e:
                 print(f"Could not fetch r/{sub}: {type(e).__name__}: {e}")
     random.shuffle(pool)
-    min_chars = args.min_seconds * split.CHARS_PER_SECOND
+    # Explainer style narrates short "Did you know..." facts; reduce the
+    # length floor and filter the pool to fact subreddits.
+    if args.style == "explainer":
+        min_seconds = max(8, args.min_seconds // 4)
+        fact_subs = {s.lower() for s in facts.FACT_SUBREDDITS}
+        pool = [s for s in pool
+                if (s.get("subreddit") or "").lower() in fact_subs]
+    else:
+        min_seconds = args.min_seconds
+    min_chars = min_seconds * split.CHARS_PER_SECOND
     fresh = [s for s in pool
              if s["id"] not in used and len(s["text"]) >= min_chars]
 
     if not fresh:
-        print("No fresh stories long enough found. Lower --min-seconds or try a "
-              "different timeframe/subreddit.")
+        if args.style == "explainer":
+            print("No fact posts in cache yet. Run refresh_stories.py locally "
+                  "to populate the new fact subreddits (todayilearned, "
+                  "interestingasfuck, etc.), then commit stories_cache.json.")
+        else:
+            print("No fresh stories long enough found. Lower --min-seconds or try a "
+                  "different timeframe/subreddit.")
         return
 
     uploader = None
@@ -257,7 +279,7 @@ def main():
         for n, out in enumerate(outs, 1):
             print(f"Rendered -> {out}")
             if uploader:
-                yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs))
+                yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs), style=args.style)
                 try:
                     uploader.upload(out, yt_title, yt_desc, yt_tags, privacy=args.privacy)
                 except Exception as e:
@@ -268,7 +290,7 @@ def main():
                         quota_exhausted = True
                         break
             if tiktok:
-                tt_caption = descriptions.tiktok(story, n, len(outs))
+                tt_caption = descriptions.tiktok(story, n, len(outs), style=args.style)
                 try:
                     tiktok.upload(out, tt_caption, mode=args.tiktok_mode,
                                   privacy=args.tiktok_privacy)

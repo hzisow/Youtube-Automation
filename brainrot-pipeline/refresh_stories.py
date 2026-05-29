@@ -15,16 +15,20 @@ import argparse
 import os
 import time
 
-from pipeline import reddit
+from pipeline import reddit, facts as facts_mod
 from auto import DEFAULT_SUBREDDITS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(HERE, "stories_cache.json")
 
+# Scrape both story subs (for story style) and fact subs (for explainer style)
+# into a single cache; auto.py filters by subreddit at video time.
+ALL_SUBREDDITS = DEFAULT_SUBREDDITS + facts_mod.FACT_SUBREDDITS
+
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--subreddit", nargs="+", default=DEFAULT_SUBREDDITS)
+    p.add_argument("--subreddit", nargs="+", default=ALL_SUBREDDITS)
     p.add_argument("--listing", default="top",
                    choices=["top", "hot", "new", "rising"])
     p.add_argument("--timeframes", nargs="+",
