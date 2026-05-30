@@ -8,7 +8,7 @@ when picking the work back up.
 
 Owner: Henry Zisow (`henryzisow@gmail.com`)
 Repo:  https://github.com/hzisow/Youtube-Automation
-Branch:`youtube-automation` (default branch)
+Branch:`main` (default branch)
 
 ---
 
