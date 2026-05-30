@@ -36,14 +36,6 @@ on:
       count:
         description: "Bulk count for manual runs (scheduled runs upload 1 each)"
         default: "1"
-      style:
-        description: "Video style to render (manual runs only; scheduled runs auto-rotate)"
-        type: choice
-        default: "auto"
-        options:
-          - "auto"
-          - "story"
-          - "explainer"
 
 env:
   ENABLE_YOUTUBE: "true"
@@ -102,42 +94,13 @@ jobs:
           printf '%s' "$TIKTOK_CLIENT_JSON" > tiktok_client.json
           printf '%s' "$TIKTOK_TOKEN_JSON" > tiktok_token.json
 
-      - name: Fetch optional animal background (for tweet style)
-        env:
-          ANIMAL_BG_URL: ${{ secrets.ANIMAL_BG_URL }}
-        run: |
-          if [ -n "$ANIMAL_BG_URL" ]; then
-            curl -L "$ANIMAL_BG_URL" -o assets/animal_bg.mp4 || true
-          fi
-
       - name: Generate and upload
-        env:
-          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
-          MANUAL_STYLE="${{ github.event.inputs.style }}"
-          # Rotate between the two known-good styles across the 5 daily slots:
-          #   13 UTC (9 AM ET)  -> story
-          #   16 UTC (12 PM ET) -> explainer
-          #   19 UTC (3 PM ET)  -> story
-          #   23 UTC (7 PM ET)  -> explainer
-          #   02 UTC (10 PM ET) -> story
-          # screenshot + tweet (scrolling Reddit/Twitter card) are intentionally
-          # removed -- their visuals didn't land. The code still lives in the
-          # repo if we want to revisit it.
-          if [ -n "$MANUAL_STYLE" ] && [ "$MANUAL_STYLE" != "auto" ]; then
-            STYLE="$MANUAL_STYLE"
-          else
-            HOUR=$(date -u +%H)
-            case "$HOUR" in
-              16|23) STYLE="explainer" ;;
-              *)     STYLE="story" ;;
-            esac
-          fi
-          FLAGS="--count $COUNT --style $STYLE --cache stories_cache.json"
-          if [ -f assets/animal_bg.mp4 ]; then
-            FLAGS="$FLAGS --animal-background assets/animal_bg.mp4"
-          fi
+          # Story style only across all 5 daily slots. The other styles
+          # (screenshot / tweet / explainer) still live in the codebase but
+          # are not used by the cron rotation.
+          FLAGS="--count $COUNT --style story --cache stories_cache.json"
           [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
           [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
           python auto.py $FLAGS

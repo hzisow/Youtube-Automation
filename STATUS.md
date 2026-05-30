@@ -50,10 +50,8 @@ Branch:`youtube-automation` (default branch)
 | Required TikTok hashtags | `#fyp #viral #trending` always | `descriptions.TIKTOK_REQUIRED` |
 | YouTube description | short — credit + next-part hook + hashtags | `descriptions.youtube` |
 | Subreddit pool | AITA, tifu, MaliciousCompliance, pettyrevenge, ProRevenge, EntitledParents, confession | `auto.DEFAULT_SUBREDDITS` |
-| Video styles in rotation | story + explainer (screenshot/tweet code still exists but disabled — visuals didn't land) | workflow `STYLE` switch |
+| Video styles in rotation | **story only** across all 5 daily slots — screenshot/tweet/explainer code still in repo but not used | workflow `Generate and upload` step |
 | Vibe music | auto-picked per story from `assets/music/<mood>/` (chill/sad/funny/dramatic/hype/mystery); off if folder empty | `tone.mood_for` + `pipeline/music.py` |
-| Daily style rotation | 9AM story · 12PM explainer · 3PM story · 7PM explainer · 10PM story | workflow `Generate and upload` step |
-| Explainer B-roll | Pexels topic-matched clip per video (needs `PEXELS_KEY` secret); falls back to gameplay if missing | `pipeline/broll.py` |
 
 ---
 
