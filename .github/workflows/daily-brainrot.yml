@@ -3,7 +3,7 @@ name: Daily Brainrot Videos
 # Free cloud scheduling. Runs daily; also runnable on demand.
 #
 # One-time secrets to add at:
-#   github.com/hzisow/Vibecoding-Projects/settings/secrets/actions
+#   github.com/hzisow/Youtube-Automation/settings/secrets/actions
 #
 #   GAMEPLAY_URL          (direct .mp4 download link to your gameplay clip)
 #   REDDIT_CLIENT_ID      (Reddit "installed app" client ID; needed because

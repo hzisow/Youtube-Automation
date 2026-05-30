@@ -7,7 +7,7 @@ This file is the **single source of truth** for project state. Read this first
 when picking the work back up.
 
 Owner: Henry Zisow (`henryzisow@gmail.com`)
-Repo:  https://github.com/hzisow/Vibecoding-Projects
+Repo:  https://github.com/hzisow/Youtube-Automation
 Branch:`youtube-automation` (default branch)
 
 ---
@@ -57,7 +57,7 @@ Branch:`youtube-automation` (default branch)
 
 ## Required GitHub secrets
 
-At `https://github.com/hzisow/Vibecoding-Projects/settings/secrets/actions`:
+At `https://github.com/hzisow/Youtube-Automation/settings/secrets/actions`:
 
 | Secret name | What it is |
 |---|---|
@@ -89,7 +89,7 @@ All 4 JSON files are git-ignored locally; never commit them.
 ### YouTube OAuth verification (Google)
 **Goal:** publish the app so refresh tokens stop expiring every 7 days.
 
-- ✅ Search Console verified for `https://hzisow.github.io/Vibecoding-Projects/`
+- ✅ Search Console verified for `https://hzisow.github.io/Youtube-Automation/`
 - ✅ Search Console verified for `https://redditstories.henryzisow.com/`
 - ✅ Landing page at `docs/index.html` rewritten to satisfy "purpose / app name / ownership"
 - ✅ OAuth consent screen updated to use `redditstories.henryzisow.com` URLs and `henryzisow.com` as authorized domain
@@ -124,7 +124,7 @@ The YouTube OAuth app is in "Testing" mode, so refresh tokens are revoked after
 
 1. On Windows PC:
    ```powershell
-   cd $HOME\vibecoding-projects\brainrot-pipeline
+   cd $HOME\Youtube-Automation\brainrot-pipeline
    git pull
    python upload.py --file output\<any.mp4> --title "reauth" --privacy unlisted
    ```
@@ -133,7 +133,7 @@ The YouTube OAuth app is in "Testing" mode, so refresh tokens are revoked after
    ```powershell
    Get-Content token.json -Raw
    ```
-3. At `https://github.com/hzisow/Vibecoding-Projects/settings/secrets/actions` →
+3. At `https://github.com/hzisow/Youtube-Automation/settings/secrets/actions` →
    click `TOKEN_JSON` → **Update secret** → paste → Save.
 
 Takes ~30 seconds. Stops being necessary once Google approves verification.
