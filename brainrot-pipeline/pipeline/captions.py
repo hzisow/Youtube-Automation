@@ -87,12 +87,16 @@ def _explode(words):
 
 def write_ass(words, ass_path: str, group_size: int = 1,
               font_name: str = DEFAULT_FONT, font_size: int = DEFAULT_SIZE,
-              color: str = None, y: int = DEFAULT_Y, animate: bool = False,
-              end_pad: float = 1.5) -> str:
+              color: str = None, y: int = DEFAULT_Y, animate: bool = True,
+              end_pad: float = 0.0) -> str:
     """Write an ASS file. With group_size=1 (default) each word appears one at a
     time; larger groups show a short phrase with the active word highlighted.
     Captions are gapless so text is always on screen.
-    Set animate=True to re-enable the scale-in pop effect."""
+    `animate` adds a subtle 60ms scale-in pop (90% -> 100%, no overshoot) so each
+    new word registers as motion to the viewer. The previous bouncy version is
+    in `_pop_bouncy` if we ever want it back.
+    `end_pad` extends the last word past the end of the audio; default 0 so the
+    final word disappears as soon as the narration ends."""
     words = _explode(words)
     # Strip punctuation and uppercase up front; drop any tokens that become empty.
     cleaned = []
@@ -106,7 +110,10 @@ def write_ass(words, ass_path: str, group_size: int = 1,
     font = _font(min(font_size, 90), bold=True)
     space_w = font.getlength(" ")
     pos = f"\\an5\\pos(540,{y})"
-    pop = "\\fscx55\\fscy55\\t(0,90,\\fscx112\\fscy112)\\t(90,170,\\fscx100\\fscy100)"
+    # Subtle pop: scale from 90% to 100% over 60ms, no overshoot. Snappy but not bouncy.
+    pop = "\\fscx90\\fscy90\\t(0,60,\\fscx100\\fscy100)"
+    # Kept for reference; not used by default.
+    _pop_bouncy = "\\fscx55\\fscy55\\t(0,90,\\fscx112\\fscy112)\\t(90,170,\\fscx100\\fscy100)"
 
     lines = [_header(font_name, font_size, color)]
     n = len(words)
