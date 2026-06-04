@@ -16,10 +16,16 @@ def render(background: str, audio: str, ass: str, out_path: str,
            music: str | None = None, music_volume: float = 0.10,
            ding: str | None = None, ding_volume: float = 0.5,
            card: str | None = None, card_end: float = 0.0,
-           card_y: int = 230) -> str:
+           card_y: int = 230, grade: str = "cinematic") -> str:
     """Render the final short. Background loops/crops to 1080x1920, captions are
     burned in, an optional title card shows for the first `card_end` seconds, and
-    voice/music/ding are mixed together."""
+    voice/music/ding are mixed together.
+
+    `grade` applies a color grade to the gameplay background:
+      - "cinematic": mild contrast bump + slight desaturation + soft vignette
+      - "horror":    heavier desaturation + stronger vignette + darker shadows
+      - "off" / "": leave the gameplay untouched
+    """
     audio_dur = _duration(audio)
     ass_arg = ass.replace("\\", "/").replace(":", "\\:")
 
@@ -37,9 +43,15 @@ def render(background: str, audio: str, ass: str, out_path: str,
         inputs += ["-i", card]
         card_idx, idx = idx, idx + 1
 
+    grade_filter = ""
+    if grade == "cinematic":
+        grade_filter = "eq=contrast=1.12:saturation=0.82:gamma=0.97,vignette=PI/5,"
+    elif grade == "horror":
+        grade_filter = "eq=contrast=1.18:saturation=0.55:gamma=0.88,vignette=PI/4,"
+
     graph = [
         "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-        f"crop=1080:1920,subtitles='{ass_arg}'[base]"
+        f"crop=1080:1920,{grade_filter}subtitles='{ass_arg}'[base]"
     ]
     if card_idx is not None:
         graph.append(

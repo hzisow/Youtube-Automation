@@ -25,9 +25,11 @@ USED_DB = os.path.join(HERE, "used.json")
 OUT_DIR = os.path.join(HERE, "output")
 
 # Good story-driven subreddits for narrated shorts.
+# Mix of drama (AITA / tifu / revenge) and scary (nosleep / letsnotmeet).
 DEFAULT_SUBREDDITS = [
     "AmItheAsshole", "tifu", "MaliciousCompliance",
     "pettyrevenge", "ProRevenge", "EntitledParents", "confession",
+    "nosleep", "letsnotmeet",
 ]
 
 
@@ -106,7 +108,8 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
     else:
         card_end = min(2.5, video._duration(audio))
     video.render(opts["background"], audio, ass, out, music=opts["music"],
-                 ding=opts["ding"], card=card, card_end=card_end)
+                 ding=opts["ding"], card=card, card_end=card_end,
+                 grade=opts.get("grade", "cinematic"))
     return out
 
 
@@ -149,6 +152,10 @@ def main():
     p.add_argument("--voice", default=tts.DEFAULT_VOICE)
     p.add_argument("--rate", default="+28%")
     p.add_argument("--channel", default="Redditstories", help="Name shown on the title card.")
+    p.add_argument("--grade", default="auto",
+                   choices=["auto", "cinematic", "horror", "off"],
+                   help="Color grade on the gameplay background. "
+                        "auto = horror for scary subs, cinematic for the rest.")
     p.add_argument("--max-seconds", type=int, default=120,
                    help="Only split into Part 1/Part 2/... if narration exceeds this (default 120s = 2:00).")
     p.add_argument("--min-seconds", type=int, default=55,
@@ -243,10 +250,26 @@ def main():
 
     made = 0
     quota_exhausted = False
+    SCARY_SUBS = {"nosleep", "letsnotmeet"}
     for story in fresh:
         if made >= args.count or quota_exhausted:
             break
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
+
+        # Per-story voice rotation. Seed = story id so every part of a
+        # multi-part story shares one voice. Explicit --voice still wins.
+        if args.voice == tts.DEFAULT_VOICE:
+            opts["voice"] = tts.pick_voice(seed=story["id"])
+        else:
+            opts["voice"] = args.voice
+        print(f"  voice: {opts['voice']}")
+
+        # Auto-pick color grade per subreddit. Scary subs -> 'horror' grade.
+        if args.grade == "auto":
+            sub = (story.get("subreddit") or "").lower().lstrip("r/")
+            opts["grade"] = "horror" if sub in SCARY_SUBS else "cinematic"
+        else:
+            opts["grade"] = args.grade
 
         # Pick a vibe-matched track per story (unless --music or --no-music).
         if args.no_music:

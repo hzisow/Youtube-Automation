@@ -3,6 +3,9 @@ import os
 
 from PIL import Image, ImageDraw, ImageFont
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+ASSETS_FONTS = os.path.abspath(os.path.join(HERE, "..", "assets", "fonts"))
+
 CARD_W = 960
 PAD = 48
 RADIUS = 36
@@ -16,16 +19,34 @@ _ORANGE = (255, 69, 0, 255)
 
 
 def _font(size: int, bold: bool = True):
-    names = (
-        ["arialbd.ttf", "Arial_Bold.ttf", "DejaVuSans-Bold.ttf"] if bold
-        else ["arial.ttf", "Arial.ttf", "DejaVuSans.ttf"]
+    """Preferred font order: bundled Inter -> system Segoe UI -> Arial -> DejaVu.
+
+    Drop Inter-Bold.ttf / Inter-Regular.ttf into assets/fonts/ and titles use
+    it automatically -- no install needed.
+    """
+    bundled = (
+        ["Inter-Bold.ttf", "Inter_18pt-Bold.ttf", "Inter-Black.ttf"]
+        if bold else
+        ["Inter-Regular.ttf", "Inter_18pt-Regular.ttf"]
     )
+    system = (
+        ["segoeuib.ttf", "SegoeUI-Bold.ttf",
+         "arialbd.ttf", "Arial_Bold.ttf", "DejaVuSans-Bold.ttf"]
+        if bold else
+        ["segoeui.ttf", "SegoeUI.ttf",
+         "arial.ttf", "Arial.ttf", "DejaVuSans.ttf"]
+    )
+    for n in bundled:
+        p = os.path.join(ASSETS_FONTS, n)
+        if os.path.exists(p):
+            return ImageFont.truetype(p, size)
     paths = [
         "C:/Windows/Fonts/", "/usr/share/fonts/truetype/dejavu/",
+        "/usr/share/fonts/truetype/inter/",
         "/Library/Fonts/", "/System/Library/Fonts/Supplemental/",
     ]
     for d in paths:
-        for n in names:
+        for n in system:
             p = os.path.join(d, n)
             if os.path.exists(p):
                 return ImageFont.truetype(p, size)

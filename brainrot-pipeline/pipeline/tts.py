@@ -2,15 +2,47 @@
 
 Edge TTS streams WordBoundary events alongside the audio, giving exact per-word
 timings for free (no Whisper needed). synthesize() returns those timings.
+
+Voice configuration:
+  - TTS_VOICE   (env, single)    -> single voice for every video
+  - TTS_VOICES  (env, comma-sep) -> rotate per story (parts 1/2 share one voice)
+  - Neither set                  -> rotate over the curated default pool below
+List voices: `python preview_voices.py --list`.
 """
 import asyncio
+import os
+import random as _random
 
 import edge_tts
 
-# Natural, brainrot-friendly default. List all voices with: edge-tts --list-voices
-# Other good free picks: en-US-BrianNeural, en-US-GuyNeural, en-US-ChristopherNeural,
-# en-US-EricNeural, en-US-AriaNeural (female), en-US-JennyNeural (female).
-DEFAULT_VOICE = "en-US-AndrewNeural"
+# Single-voice override / default.
+DEFAULT_VOICE = os.environ.get("TTS_VOICE", "en-US-AndrewNeural")
+
+# Per-story rotation pool. Multilingual variants sound noticeably more natural
+# than the originals; mix of US M/F.
+_DEFAULT_POOL = [
+    "en-US-AndrewMultilingualNeural",
+    "en-US-BrianMultilingualNeural",
+    "en-US-EmmaMultilingualNeural",
+    "en-US-AvaMultilingualNeural",
+    "en-US-ChristopherNeural",
+    "en-US-RogerNeural",
+]
+_pool_env = os.environ.get("TTS_VOICES", "")
+VOICE_POOL = [v.strip() for v in _pool_env.split(",") if v.strip()] or _DEFAULT_POOL
+
+
+def pick_voice(seed=None):
+    """Pick a voice from VOICE_POOL.
+
+    With a `seed` (story id, etc.) the choice is deterministic so every part
+    of a multi-part story shares one voice. Without a seed, picks randomly.
+    """
+    if not VOICE_POOL:
+        return DEFAULT_VOICE
+    if seed is None:
+        return _random.choice(VOICE_POOL)
+    return VOICE_POOL[hash(seed) % len(VOICE_POOL)]
 
 
 async def _synth(text, out_path, voice, rate, pitch):
@@ -29,9 +61,6 @@ async def _synth(text, out_path, voice, rate, pitch):
                     continue
                 start = chunk.get("offset", 0) / 1e7
                 end = start + chunk.get("duration", 0) / 1e7
-                # Some edge-tts builds emit phrase-level chunks. Split into
-                # individual words with proportional timings so captions can
-                # actually appear one at a time.
                 pieces = token.split()
                 if len(pieces) == 1:
                     words.append((token, start, end))
