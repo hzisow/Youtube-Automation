@@ -227,11 +227,10 @@ def main():
         return
 
     uploader = None
-    if args.upload:
-        import upload as uploader  # imported lazily so render-only runs need no Google libs
-    tiktok = None
-    if args.tiktok:
-        import tiktok_upload as tiktok  # lazy import so non-TikTok runs need no deps
+    if args.upload or args.tiktok:
+        from pipeline import uploadpost as publisher  # one call -> both platforms
+    else:
+        publisher = None
 
     ding = None if args.no_ding else sfx.ensure_ding(os.path.join(HERE, "assets", "ding.wav"))
 
@@ -278,24 +277,28 @@ def main():
 
         for n, out in enumerate(outs, 1):
             print(f"Rendered -> {out}")
-            if uploader:
-                yt_title, yt_desc, yt_tags = descriptions.youtube(story, n, len(outs), style=args.style)
+            if publisher:
+                yt_title, yt_desc, _ = descriptions.youtube(story, n, len(outs), style=args.style)
+                tt_caption = descriptions.tiktok(story, n, len(outs), style=args.style)
+                # Map our --tiktok-privacy to upload-post's tiktok_privacy_level.
+                tt_priv = args.tiktok_privacy if args.tiktok else None
                 try:
-                    uploader.upload(out, yt_title, yt_desc, yt_tags, privacy=args.privacy)
+                    publisher.upload(
+                        out,
+                        title=yt_title,
+                        description=yt_desc,
+                        platforms=("tiktok", "youtube"),
+                        tiktok_title=tt_caption,
+                        youtube_privacy=args.privacy,
+                        tiktok_privacy=tt_priv,
+                    )
                 except Exception as e:
                     msg = str(e).lower()
-                    print(f"YouTube upload failed: {type(e).__name__}: {e}")
-                    if "quota" in msg or "uploadlimit" in msg:
-                        print("YouTube quota appears exhausted; stopping further runs today.")
+                    print(f"upload-post failed: {type(e).__name__}: {e}")
+                    if "quota" in msg or "rate" in msg or "limit" in msg:
+                        print("Upload-post rate/quota signal; stopping further uploads today.")
                         quota_exhausted = True
                         break
-            if tiktok:
-                tt_caption = descriptions.tiktok(story, n, len(outs), style=args.style)
-                try:
-                    tiktok.upload(out, tt_caption, mode=args.tiktok_mode,
-                                  privacy=args.tiktok_privacy)
-                except Exception as e:
-                    print(f"TikTok upload failed: {type(e).__name__}: {e}")
 
     print(f"\nFinished. {made} story(ies) in {OUT_DIR}")
 

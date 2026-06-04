@@ -2,29 +2,21 @@ name: Daily Brainrot Videos
 
 # Free cloud scheduling. Runs daily; also runnable on demand.
 #
-# One-time secrets to add at:
-#   github.com/hzisow/Youtube-Automation/settings/secrets/actions
+# Uploads go through upload-post.com, which handles YouTube + TikTok auth
+# on their side. One API key replaces both Google OAuth and TikTok OAuth.
 #
-#   GAMEPLAY_URL          (direct .mp4 download link to your gameplay clip)
-#   REDDIT_CLIENT_ID      (Reddit "installed app" client ID; needed because
-#                         Reddit blocks anonymous traffic from cloud IPs.
-#                         Create one free at reddit.com/prefs/apps -> "installed app".)
-#   CLIENT_SECRET_JSON    (contents of brainrot-pipeline/client_secret.json)
-#   TOKEN_JSON            (contents of brainrot-pipeline/token.json after first
-#                         local OAuth; refreshes itself on each run)
-#   TIKTOK_CLIENT_JSON    (contents of brainrot-pipeline/tiktok_client.json)
-#   TIKTOK_TOKEN_JSON     (contents of brainrot-pipeline/tiktok_token.json)
+# Required GitHub secrets (at
+# github.com/hzisow/Youtube-Automation/settings/secrets/actions):
 #
-# Caveats:
-#  - In Google "Testing" mode, the YouTube refresh token expires every 7 days.
-#    Re-auth locally (run upload.py once) and re-paste TOKEN_JSON when it does.
-#  - TikTok Sandbox / un-audited apps post to drafts only. The inbox flow still
-#    runs hands-off; you'll tap Publish in the TikTok app.
-#  - Flip ENABLE_YOUTUBE / ENABLE_TIKTOK below once the matching secrets exist.
+#   GAMEPLAY_URL          Direct .mp4 link to the looping gameplay clip.
+#   REDDIT_CLIENT_ID      (Optional) Reddit installed-app client ID, only used
+#                         by local refresh_stories.py; workflow forwards it.
+#   UPLOADPOST_API_KEY    JWT from your upload-post.com dashboard.
+#   UPLOADPOST_USER       The user label assigned in upload-post (e.g.
+#                         "tiktokuploader") that maps to your connected
+#                         YouTube + TikTok accounts.
 
 on:
-  # Five staggered runs to hit TikTok's morning + evening peaks (US-centric).
-  # Each scheduled run uploads 1 video -> 5/day total, spread across the day.
   schedule:
     - cron: "0 13 * * *"   #  9:00 AM ET - morning commute
     - cron: "0 16 * * *"   # 12:00 PM ET - lunch
@@ -38,9 +30,7 @@ on:
         default: "1"
 
 env:
-  ENABLE_YOUTUBE: "true"
-  ENABLE_TIKTOK: "true"
-  TIKTOK_MODE: "inbox"      # switch to "direct" after TikTok audit
+  ENABLE_PUBLISH: "true"
   YOUTUBE_PRIVACY: "public"  # public / unlisted / private
 
 jobs:
@@ -76,33 +66,16 @@ jobs:
             echo "GAMEPLAY_URL secret is not set." && exit 1
           fi
 
-      - name: Restore YouTube credentials
-        if: env.ENABLE_YOUTUBE == 'true'
-        env:
-          CLIENT_SECRET_JSON: ${{ secrets.CLIENT_SECRET_JSON }}
-          TOKEN_JSON: ${{ secrets.TOKEN_JSON }}
-        run: |
-          printf '%s' "$CLIENT_SECRET_JSON" > client_secret.json
-          printf '%s' "$TOKEN_JSON" > token.json
-
-      - name: Restore TikTok credentials
-        if: env.ENABLE_TIKTOK == 'true'
-        env:
-          TIKTOK_CLIENT_JSON: ${{ secrets.TIKTOK_CLIENT_JSON }}
-          TIKTOK_TOKEN_JSON: ${{ secrets.TIKTOK_TOKEN_JSON }}
-        run: |
-          printf '%s' "$TIKTOK_CLIENT_JSON" > tiktok_client.json
-          printf '%s' "$TIKTOK_TOKEN_JSON" > tiktok_token.json
-
       - name: Generate and upload
+        env:
+          UPLOADPOST_API_KEY: ${{ secrets.UPLOADPOST_API_KEY }}
+          UPLOADPOST_USER: ${{ secrets.UPLOADPOST_USER }}
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
-          # Story style only across all 5 daily slots. The other styles
-          # (screenshot / tweet / explainer) still live in the codebase but
-          # are not used by the cron rotation.
           FLAGS="--count $COUNT --style story --cache stories_cache.json"
-          [ "$ENABLE_YOUTUBE" = "true" ] && FLAGS="$FLAGS --upload --privacy $YOUTUBE_PRIVACY"
-          [ "$ENABLE_TIKTOK"  = "true" ] && FLAGS="$FLAGS --tiktok --tiktok-mode $TIKTOK_MODE"
+          if [ "$ENABLE_PUBLISH" = "true" ]; then
+            FLAGS="$FLAGS --upload --tiktok --privacy $YOUTUBE_PRIVACY"
+          fi
           python auto.py $FLAGS
 
       - name: Persist used.json so tomorrow's run skips today's stories
