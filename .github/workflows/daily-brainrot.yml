@@ -18,11 +18,13 @@ name: Daily Brainrot Videos
 
 on:
   schedule:
-    - cron: "0 13 * * *"   #  9:00 AM ET - morning commute
-    - cron: "0 16 * * *"   # 12:00 PM ET - lunch
-    - cron: "0 19 * * *"   #  3:00 PM ET - after school
-    - cron: "0 23 * * *"   #  7:00 PM ET - evening peak
-    - cron: "0  2 * * *"   # 10:00 PM ET - late peak
+    # Two trigger windows per day. Each independently rolls a 38% dice
+    # to actually post + sleeps 0-180 random minutes before doing so.
+    # Math: 2 triggers * 0.38 ~= 0.76 posts/day ~= 3 posts per 4 days.
+    # The random sleep means we never post at the same minute twice,
+    # which keeps the cadence from looking botted.
+    - cron: "0 14 * * *"   # 10:00 AM ET trigger (posts 10 AM - 1 PM ET)
+    - cron: "0 22 * * *"   #  6:00 PM ET trigger (posts  6 PM - 9 PM ET)
   workflow_dispatch:
     inputs:
       count:
@@ -34,8 +36,34 @@ env:
   YOUTUBE_PRIVACY: "public"  # public / unlisted / private
 
 jobs:
-  generate:
+  dice:
     runs-on: ubuntu-latest
+    outputs:
+      should_post: ${{ steps.roll.outputs.should_post }}
+    steps:
+      - id: roll
+        name: Roll dice for cadence (~3 posts per 4 days)
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run -> posting unconditionally."
+            echo "should_post=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ROLL=$((RANDOM % 100))
+          THRESH=38
+          if [ $ROLL -lt $THRESH ]; then
+            echo "Rolled $ROLL (< $THRESH): POSTING this slot."
+            echo "should_post=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Rolled $ROLL (>= $THRESH): skipping this slot."
+            echo "should_post=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  generate:
+    needs: dice
+    if: needs.dice.outputs.should_post == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
     permissions:
       contents: write
     defaults:
@@ -43,6 +71,13 @@ jobs:
         working-directory: brainrot-pipeline
     steps:
       - uses: actions/checkout@v4
+
+      - name: Random pre-post sleep (0-180 min) so post time varies
+        if: github.event_name == 'schedule'
+        run: |
+          SLEEP_MIN=$((RANDOM % 180))
+          echo "Sleeping $SLEEP_MIN minutes before kicking off the render."
+          sleep $((SLEEP_MIN * 60))
 
       - uses: actions/setup-python@v5
         with:
