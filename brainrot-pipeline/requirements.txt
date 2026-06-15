@@ -6,3 +6,6 @@ google-api-python-client>=2.0.0
 google-auth-oauthlib>=1.0.0
 # For tiktok_upload.py (TikTok Content Posting API)
 requests>=2.20.0
+# Open-source TTS engine (TTS_ENGINE=piper). ~60MB per voice; downloaded
+# at first use into ~/.cache/piper/ which the workflow caches across runs.
+piper-tts>=1.2.0

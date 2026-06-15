@@ -1,13 +1,23 @@
-"""Free voiceover generation via Microsoft Edge TTS (no API key).
+"""TTS dispatcher. Routes to Microsoft Edge TTS (cloud, fast) or Piper TTS
+(open-source, local CPU) based on the TTS_ENGINE env var.
 
-Edge TTS streams WordBoundary events alongside the audio, giving exact per-word
-timings for free (no Whisper needed). synthesize() returns those timings.
+Engine:
+  TTS_ENGINE=edge   (default in code; workflow sets piper) - Edge TTS
+  TTS_ENGINE=piper  - Piper TTS (open source, MIT licensed)
 
-Voice configuration:
-  - TTS_VOICE   (env, single)    -> single voice for every video
-  - TTS_VOICES  (env, comma-sep) -> rotate per story (parts 1/2 share one voice)
-  - Neither set                  -> rotate over the curated default pool below
-List voices: `python preview_voices.py --list`.
+Edge voice config:
+  TTS_VOICE   (env, single)    - single voice for every video
+  TTS_VOICES  (env, comma-sep) - rotate per story
+
+Piper voice config:
+  PIPER_VOICE   (env, single)
+  PIPER_VOICES  (env, comma-sep)
+
+List Edge voices: `python preview_voices.py --list`.
+Piper voices live in pipeline/piper_tts.py:_VOICE_HF_PATHS.
+
+Both engines expose the same surface (DEFAULT_VOICE, VOICE_POOL,
+pick_voice, synthesize), so auto.py doesn't care which is active.
 """
 import asyncio
 import os
@@ -15,12 +25,11 @@ import random as _random
 
 import edge_tts
 
-# Single-voice override / default.
-DEFAULT_VOICE = os.environ.get("TTS_VOICE", "en-US-AndrewNeural")
+_ENGINE = os.environ.get("TTS_ENGINE", "edge").lower()
 
-# Per-story rotation pool. Multilingual variants sound noticeably more natural
-# than the originals; mix of US M/F.
-_DEFAULT_POOL = [
+# === Edge TTS pool / defaults ===
+_EDGE_DEFAULT_VOICE = os.environ.get("TTS_VOICE", "en-US-AndrewNeural")
+_EDGE_DEFAULT_POOL = [
     "en-US-AndrewMultilingualNeural",
     "en-US-BrianMultilingualNeural",
     "en-US-EmmaMultilingualNeural",
@@ -28,21 +37,42 @@ _DEFAULT_POOL = [
     "en-US-ChristopherNeural",
     "en-US-RogerNeural",
 ]
-_pool_env = os.environ.get("TTS_VOICES", "")
-VOICE_POOL = [v.strip() for v in _pool_env.split(",") if v.strip()] or _DEFAULT_POOL
+_edge_pool_env = os.environ.get("TTS_VOICES", "")
+_EDGE_POOL = [v.strip() for v in _edge_pool_env.split(",") if v.strip()] or _EDGE_DEFAULT_POOL
+
+# === Unified public interface (engine-dependent) ===
+if _ENGINE == "piper":
+    from . import piper_tts
+    DEFAULT_VOICE = piper_tts.DEFAULT_VOICE
+    VOICE_POOL = piper_tts.VOICE_POOL
+else:
+    DEFAULT_VOICE = _EDGE_DEFAULT_VOICE
+    VOICE_POOL = _EDGE_POOL
 
 
 def pick_voice(seed=None):
-    """Pick a voice from VOICE_POOL.
-
-    With a `seed` (story id, etc.) the choice is deterministic so every part
-    of a multi-part story shares one voice. Without a seed, picks randomly.
-    """
+    """Pick a voice from the active engine's pool. Deterministic with `seed`."""
+    if _ENGINE == "piper":
+        from . import piper_tts
+        return piper_tts.pick_voice(seed=seed)
     if not VOICE_POOL:
         return DEFAULT_VOICE
     if seed is None:
         return _random.choice(VOICE_POOL)
     return VOICE_POOL[hash(seed) % len(VOICE_POOL)]
+
+
+def synthesize(text: str, out_path: str, voice: str = None,
+               rate: str = "+18%", pitch: str = "+0Hz"):
+    """Render text to mp3 and return [(word, start, end), ...] timings.
+
+    Piper engine returns []; pipeline/captions falls back to Whisper.
+    """
+    voice = voice or DEFAULT_VOICE
+    if _ENGINE == "piper":
+        from . import piper_tts
+        return piper_tts.synthesize(text, out_path, voice=voice)
+    return asyncio.run(_synth(text, out_path, voice, rate, pitch))
 
 
 async def _synth(text, out_path, voice, rate, pitch):
@@ -69,9 +99,3 @@ async def _synth(text, out_path, voice, rate, pitch):
                     for k, piece in enumerate(pieces):
                         words.append((piece, start + k * dt, start + (k + 1) * dt))
     return words
-
-
-def synthesize(text: str, out_path: str, voice: str = DEFAULT_VOICE,
-               rate: str = "+18%", pitch: str = "+0Hz"):
-    """Render `text` to an mp3 and return [(word, start, end), ...] timings."""
-    return asyncio.run(_synth(text, out_path, voice, rate, pitch))

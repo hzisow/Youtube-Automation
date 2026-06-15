@@ -21,8 +21,6 @@ on:
     # Two trigger windows per day. Each independently rolls a 38% dice
     # to actually post + sleeps 0-180 random minutes before doing so.
     # Math: 2 triggers * 0.38 ~= 0.76 posts/day ~= 3 posts per 4 days.
-    # The random sleep means we never post at the same minute twice,
-    # which keeps the cadence from looking botted.
     - cron: "0 14 * * *"   # 10:00 AM ET trigger (posts 10 AM - 1 PM ET)
     - cron: "0 22 * * *"   #  6:00 PM ET trigger (posts  6 PM - 9 PM ET)
   workflow_dispatch:
@@ -34,6 +32,7 @@ on:
 env:
   ENABLE_PUBLISH: "true"
   YOUTUBE_PRIVACY: "public"  # public / unlisted / private
+  TTS_ENGINE: "piper"        # piper (open-source, local) or edge (cloud)
 
 jobs:
   dice:
@@ -91,6 +90,14 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
+      - name: Cache Piper voice models + Whisper model
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/piper
+            ~/.cache/huggingface
+          key: tts-models-v1
+
       - name: Fetch gameplay clip
         env:
           GAMEPLAY_URL: ${{ secrets.GAMEPLAY_URL }}
@@ -105,6 +112,7 @@ jobs:
         env:
           UPLOADPOST_API_KEY: ${{ secrets.UPLOADPOST_API_KEY }}
           UPLOADPOST_USER: ${{ secrets.UPLOADPOST_USER }}
+          TTS_ENGINE: ${{ env.TTS_ENGINE }}
         run: |
           COUNT="${{ github.event.inputs.count || '1' }}"
           FLAGS="--count $COUNT --style story --cache stories_cache.json"
