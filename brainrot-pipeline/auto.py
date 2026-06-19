@@ -55,7 +55,7 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
 
     words = tts.synthesize(text, audio, voice=opts["voice"], rate=opts["rate"])
     if not captions.timings_ok(words):
-        print("  edge-tts word timings unusable; falling back to Whisper...")
+        print("  word timings unusable from TTS; falling back to Whisper...")
         words = captions.transcribe_words(audio)
 
     style = opts.get("style")
@@ -233,11 +233,14 @@ def main():
                   "different timeframe/subreddit.")
         return
 
-    uploader = None
     if args.upload or args.tiktok:
-        from pipeline import uploadpost as publisher  # one call -> both platforms
+        from pipeline import uploadpost as publisher
+        print(f"Upload destination: upload-post.com "
+              f"(user={os.environ.get('UPLOADPOST_USER', '<UNSET>')}, "
+              f"api_key={'set' if os.environ.get('UPLOADPOST_API_KEY') else '<UNSET>'})")
     else:
         publisher = None
+        print("Publishing disabled (no --upload / --tiktok flags). Render-only run.")
 
     ding = None if args.no_ding else sfx.ensure_ding(os.path.join(HERE, "assets", "ding.wav"))
 
@@ -251,31 +254,42 @@ def main():
     made = 0
     quota_exhausted = False
     SCARY_SUBS = {"nosleep", "letsnotmeet"}
+    HORROR_VOICE = "en-US-RogerNeural"
+    HORROR_MUSIC = os.path.join(HERE, "sounds", "horror.mp3")
     for story in fresh:
         if made >= args.count or quota_exhausted:
             break
         print(f"\n=== [{made + 1}/{args.count}] {story['title'][:70]} ===")
 
+        sub = (story.get("subreddit") or "").lower().lstrip("r/")
+        is_horror = sub in SCARY_SUBS
+
         # Per-story voice rotation. Seed = story id so every part of a
-        # multi-part story shares one voice. Explicit --voice still wins.
-        if args.voice == tts.DEFAULT_VOICE:
-            opts["voice"] = tts.pick_voice(seed=story["id"])
-        else:
+        # multi-part story shares one voice. Explicit --voice wins.
+        if args.voice != tts.DEFAULT_VOICE:
             opts["voice"] = args.voice
+        elif is_horror and os.environ.get("TTS_ENGINE", "edge").lower() != "piper":
+            # Force deep voice for horror on Edge; Piper picks its own deep voice via pool.
+            opts["voice"] = HORROR_VOICE
+        else:
+            opts["voice"] = tts.pick_voice(seed=story["id"])
         print(f"  voice: {opts['voice']}")
 
         # Auto-pick color grade per subreddit. Scary subs -> 'horror' grade.
         if args.grade == "auto":
-            sub = (story.get("subreddit") or "").lower().lstrip("r/")
-            opts["grade"] = "horror" if sub in SCARY_SUBS else "cinematic"
+            opts["grade"] = "horror" if is_horror else "cinematic"
         else:
             opts["grade"] = args.grade
 
-        # Pick a vibe-matched track per story (unless --music or --no-music).
+        # Music: explicit --music wins. Horror stories always get the bundled
+        # ambient horror track. Other stories vibe-match from assets/music/.
         if args.no_music:
             opts["music"] = None
         elif args.music:
             opts["music"] = args.music
+        elif is_horror and os.path.exists(HORROR_MUSIC):
+            opts["music"] = HORROR_MUSIC
+            print(f"  music (horror): {os.path.basename(HORROR_MUSIC)}")
         else:
             mood = tone.mood_for(story.get("subreddit"), story["title"])
             track = music.pick_track(mood, args.music_dir)
@@ -305,8 +319,11 @@ def main():
                 tt_caption = descriptions.tiktok(story, n, len(outs), style=args.style)
                 # Map our --tiktok-privacy to upload-post's tiktok_privacy_level.
                 tt_priv = args.tiktok_privacy if args.tiktok else None
+                size_mb = os.path.getsize(out) / (1024 * 1024)
+                print(f"  uploading via upload-post: title='{yt_title[:60]}' "
+                      f"size={size_mb:.1f}MB platforms=tiktok,youtube...")
                 try:
-                    publisher.upload(
+                    result = publisher.upload(
                         out,
                         title=yt_title,
                         description=yt_desc,
@@ -315,13 +332,16 @@ def main():
                         youtube_privacy=args.privacy,
                         tiktok_privacy=tt_priv,
                     )
+                    print(f"  upload-post OK: {result}")
                 except Exception as e:
                     msg = str(e).lower()
-                    print(f"upload-post failed: {type(e).__name__}: {e}")
+                    print(f"  upload-post FAILED: {type(e).__name__}: {e}")
                     if "quota" in msg or "rate" in msg or "limit" in msg:
-                        print("Upload-post rate/quota signal; stopping further uploads today.")
+                        print("  Rate/quota signal; stopping further uploads today.")
                         quota_exhausted = True
                         break
+            else:
+                print(f"  (skipped upload: --upload / --tiktok not set)")
 
     print(f"\nFinished. {made} story(ies) in {OUT_DIR}")
 
