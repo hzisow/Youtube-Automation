@@ -108,11 +108,14 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
     else:
         card_end = min(2.5, video._duration(audio))
 
-    # Start the gameplay clip at a different point every video so two shorts
-    # using the same background don't open on the same frame. Seeded on the
-    # slug (unique per part) so re-renders are stable but Part 1 and Part 2
-    # still differ. video.render() wraps this modulo the clip's real length.
-    bg_offset = hash(slug) % 600
+    # Start the gameplay clip at a different point per STORY so two unrelated
+    # shorts don't open on the same frame. Seeded on the story id (not the
+    # slug) on purpose: every part of a multi-part story shares one offset,
+    # so Part 1 / Part 2 / Part 3 look like one continuous series. The clip
+    # file itself is already shared -- the workflow downloads one per run.
+    # video.render() wraps this modulo the clip's real length.
+    offset_seed = story["id"] if story else slug
+    bg_offset = hash(offset_seed) % 600
 
     video.render(opts["background"], audio, ass, out, music=opts["music"],
                  ding=opts["ding"], card=card, card_end=card_end,
