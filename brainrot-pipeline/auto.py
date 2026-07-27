@@ -107,9 +107,17 @@ def _make_video(text, card_title, time_title, slug, color, opts, story=None):
         card_end = titlecard.title_end_time(words, time_title)
     else:
         card_end = min(2.5, video._duration(audio))
+
+    # Start the gameplay clip at a different point every video so two shorts
+    # using the same background don't open on the same frame. Seeded on the
+    # slug (unique per part) so re-renders are stable but Part 1 and Part 2
+    # still differ. video.render() wraps this modulo the clip's real length.
+    bg_offset = hash(slug) % 600
+
     video.render(opts["background"], audio, ass, out, music=opts["music"],
                  ding=opts["ding"], card=card, card_end=card_end,
-                 grade=opts.get("grade", "cinematic"))
+                 grade=opts.get("grade", "cinematic"),
+                 bg_offset=bg_offset)
     return out
 
 
