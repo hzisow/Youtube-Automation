@@ -49,8 +49,9 @@ from a GitHub Release.
   see "Honest limits" below. YouTube is unaffected.
 - **Background clips:** auto-rotated. Every run queries the GitHub Release
   tagged **`assets-v1`**, lists its `.mp4` assets, and picks one at random.
-  Additionally each video seeks a per-video offset into the clip so two
-  shorts on the same clip don't open on the same frame.
+  Additionally each *story* seeks a different offset into the clip, so two
+  unrelated shorts don't open on the same frame — but all parts of one
+  multi-part story share the clip AND the start frame.
 - **Story source:** `brainrot-pipeline/stories_cache.json` (~6,570 drama
   stories; 12 seeded horror stories exist in `seed_horror_stories.py` but
   may not be merged into the cache yet — see TODOs). The cache file is
@@ -109,11 +110,17 @@ That's it. The next run picks it up. No secret edits, no code changes.
 5. If zero `.mp4` assets are found, falls back to the `GAMEPLAY_URL` secret.
    If that's also empty, the step fails with a clear error.
 
+One clip is downloaded per run, so every video rendered in that run —
+including all parts of a multi-part story — uses the same clip file.
+
 **Second variety axis:** `pipeline/video.py:render()` takes `bg_offset`
-(seconds). `auto.py` passes `hash(slug) % 600`, seeded on the slug so it's
-unique per part (`-p1`, `-p2`) but stable across re-renders. `render()`
-wraps it modulo the clip's real duration via ffprobe so it never seeks
-past the end, and `-stream_loop -1` still covers the full narration.
+(seconds). `auto.py` passes `hash(story["id"]) % 600`. Seeded on the
+**story id, not the slug** — that's deliberate, so Part 1 / Part 2 /
+Part 3 all open on the same frame and read as one continuous series,
+while unrelated stories land somewhere different. (Voice rotation is
+seeded the same way, for the same reason.) `render()` wraps the offset
+modulo the clip's real duration via ffprobe so it never seeks past the
+end, and `-stream_loop -1` still covers the full narration.
 
 **Why the release and not something else:** unlimited free bandwidth on
 public repos, 2 GB/file, same host as the repo (no third-party link rot).
@@ -225,6 +232,27 @@ the top of the file. No code changes needed.
 
 ---
 
+## What multi-part stories share
+
+A story longer than 2 minutes gets split into Part 1 / Part 2 / Part 3
+(`pipeline/split.py`, 8s recap overlap). These are deliberately kept
+visually and sonically consistent so they read as one series:
+
+| Property | Shared across parts? | Seeded on |
+|---|---|---|
+| Background clip file | Yes | one download per workflow run |
+| Background start frame | Yes | `hash(story["id"])` |
+| Narrator voice | Yes | `hash(story["id"])` |
+| Color grade | Yes | subreddit |
+| Music bed | Yes | subreddit / mood |
+| Title card text | No — shows "(Part N)" | — |
+| Caption color | Yes | subreddit tone |
+
+If you ever want something to vary per part instead, seed it on `slug`
+(which is `<base>-p1`, `<base>-p2`, …) rather than `story["id"]`.
+
+---
+
 ## Cadence details
 
 The workflow has TWO jobs:
@@ -299,6 +327,9 @@ to the bottom as decisions are made. Don't remove old entries.
 - **Background clips:** hosted as GitHub Release assets on `assets-v1`,
   auto-discovered and randomly picked per run. Chosen over Drive/Dropbox
   (link rot) and in-repo commits (history bloat, 100 MB cap).
+- **Multi-part consistency:** parts of one story deliberately share clip,
+  start frame, voice, grade and music so they read as a series. Anything
+  that should vary per part must be seeded on `slug`, not `story["id"]`.
 
 ---
 
@@ -448,13 +479,17 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 
 Newest first. Update this section every time you make a change.
 
+- **2026-06-19** — Multi-part stories now share one background start
+  frame. The `bg_offset` seed moved from `slug` (unique per part) to
+  `story["id"]` (shared), so Part 1 / Part 2 open on the same frame and
+  read as a series. Commit `2fa8b80`. Added a "What multi-part stories
+  share" table to this doc.
 - **2026-06-19** — Background clips now rotate automatically. Workflow
   queries the `assets-v1` release, filters `.mp4` assets with jq, and
   picks one at random per run (falls back to `GAMEPLAY_URL` if empty).
   Commit `523e218`. Plus `video.render()` gained a `bg_offset` param and
-  `auto.py` passes `hash(slug) % 600` so each video starts the clip at a
-  different frame — commit `fa397a6`. This restores a change requested
-  earlier whose patch never landed.
+  `auto.py` wires it up — commit `fa397a6`. This restored a change
+  requested earlier whose patch never landed.
 - **2026-06-19** — Diagnosed "not uploading anymore": renders were fine,
   but the upload call logged nothing on success OR entry, so the logs
   were silent. Added request/response logging around the upload-post
@@ -496,6 +531,7 @@ Newest first. Update this section every time you make a change.
 | TikTok video in inbox, not posted | TikTok daily active-user limit | Finish in the TikTok app, or contact upload-post support |
 | "No .mp4 assets found in release" in the log | `assets-v1` release has no video assets | Upload clips to the release, or set `GAMEPLAY_URL` |
 | Every video has the same background | Only one `.mp4` in the release | Upload more clips |
+| Part 1 and Part 2 look different | Shouldn't happen — offset is story-seeded | Check `_make_video` still uses `story["id"]` |
 | Workflow fails at "Install Python deps" with piper-tts error | Piper package not installable | Switch `TTS_ENGINE: edge` in workflow |
 | Piper voice download fails | HuggingFace down or rate-limited | Retry; cache survives partial failures |
 | Whisper fallback hangs | Model not cached, slow download | First run only; cache handles the rest |
