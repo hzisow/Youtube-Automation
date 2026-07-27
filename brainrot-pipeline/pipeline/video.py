@@ -16,7 +16,8 @@ def render(background: str, audio: str, ass: str, out_path: str,
            music: str | None = None, music_volume: float = 0.10,
            ding: str | None = None, ding_volume: float = 0.5,
            card: str | None = None, card_end: float = 0.0,
-           card_y: int = 230, grade: str = "cinematic") -> str:
+           card_y: int = 230, grade: str = "cinematic",
+           bg_offset: float = 0.0) -> str:
     """Render the final short. Background loops/crops to 1080x1920, captions are
     burned in, an optional title card shows for the first `card_end` seconds, and
     voice/music/ding are mixed together.
@@ -25,12 +26,26 @@ def render(background: str, audio: str, ass: str, out_path: str,
       - "cinematic": mild contrast bump + slight desaturation + soft vignette
       - "horror":    heavier desaturation + stronger vignette + darker shadows
       - "off" / "": leave the gameplay untouched
+
+    `bg_offset` seeks that many seconds into the background clip before
+    reading, so two videos using the same clip don't open on the same frame.
+    Wrapped modulo the clip's real duration, and combined with -stream_loop
+    the clip still plays for the full length of the narration.
     """
     audio_dur = _duration(audio)
     ass_arg = ass.replace("\\", "/").replace(":", "\\:")
 
+    # Wrap the seek offset into the clip so we never seek past the end.
+    if bg_offset:
+        try:
+            bg_dur = _duration(background)
+            bg_offset = bg_offset % bg_dur if bg_dur > 1 else 0.0
+        except Exception:
+            bg_offset = 0.0
+
     # Inputs (order fixes their stream indices).
-    inputs = ["-stream_loop", "-1", "-i", background, "-i", audio]
+    bg_seek = ["-ss", f"{max(0.0, bg_offset):.2f}"] if bg_offset else []
+    inputs = ["-stream_loop", "-1", *bg_seek, "-i", background, "-i", audio]
     idx = 2
     music_idx = ding_idx = card_idx = None
     if music:

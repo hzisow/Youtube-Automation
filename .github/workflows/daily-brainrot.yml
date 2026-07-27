@@ -8,13 +8,18 @@ name: Daily Brainrot Videos
 # Required GitHub secrets (at
 # github.com/hzisow/Youtube-Automation/settings/secrets/actions):
 #
-#   GAMEPLAY_URL          Direct .mp4 link to the looping gameplay clip.
-#   REDDIT_CLIENT_ID      (Optional) Reddit installed-app client ID, only used
-#                         by local refresh_stories.py; workflow forwards it.
 #   UPLOADPOST_API_KEY    JWT from your upload-post.com dashboard.
 #   UPLOADPOST_USER       The user label assigned in upload-post (e.g.
 #                         "tiktokuploader") that maps to your connected
 #                         YouTube + TikTok accounts.
+#   GAMEPLAY_URL          (optional fallback) Direct .mp4 link, used only if
+#                         the clip release below has no .mp4 assets.
+#
+# BACKGROUND CLIPS: upload .mp4 files to the GitHub Release tagged
+# "assets-v1". Every run queries that release, lists its .mp4 assets, and
+# picks one at random. Drag a new clip into the release and it joins the
+# rotation immediately -- no secret edits, no code changes.
+#   https://github.com/hzisow/Youtube-Automation/releases/tag/assets-v1
 
 on:
   schedule:
@@ -33,6 +38,7 @@ env:
   ENABLE_PUBLISH: "true"
   YOUTUBE_PRIVACY: "public"  # public / unlisted / private
   TTS_ENGINE: "piper"        # piper (open-source, local) or edge (cloud)
+  CLIP_RELEASE_TAG: "assets-v1"  # release holding the background .mp4 clips
 
 jobs:
   dice:
@@ -98,15 +104,31 @@ jobs:
             ~/.cache/huggingface
           key: tts-models-v1
 
-      - name: Fetch gameplay clip
+      - name: Fetch a random gameplay clip
         env:
           GAMEPLAY_URL: ${{ secrets.GAMEPLAY_URL }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "$GAMEPLAY_URL" ]; then
-            curl -L "$GAMEPLAY_URL" -o assets/gameplay.mp4
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${CLIP_RELEASE_TAG}"
+          echo "Looking for .mp4 clips in release '${CLIP_RELEASE_TAG}'..."
+          URLS=$(curl -sfL -H "Authorization: Bearer ${GH_TOKEN}" \
+                      -H "Accept: application/vnd.github+json" "$API" \
+                 | jq -r '.assets[]? | select(.name | ascii_downcase | endswith(".mp4")) | .browser_download_url' \
+                 || true)
+          COUNT=$(printf '%s' "$URLS" | grep -c . || true)
+          if [ "${COUNT:-0}" -gt 0 ]; then
+            PICK=$(printf '%s\n' "$URLS" | shuf -n 1)
+            echo "Found ${COUNT} clip(s) in the release. This run uses: $(basename "$PICK")"
           else
-            echo "GAMEPLAY_URL secret is not set." && exit 1
+            PICK="$GAMEPLAY_URL"
+            echo "No .mp4 assets found in release '${CLIP_RELEASE_TAG}'; falling back to the GAMEPLAY_URL secret."
           fi
+          if [ -z "$PICK" ]; then
+            echo "::error::No gameplay clip available. Upload .mp4 files to the '${CLIP_RELEASE_TAG}' release, or set the GAMEPLAY_URL secret."
+            exit 1
+          fi
+          curl -fL "$PICK" -o assets/gameplay.mp4
+          ls -lh assets/gameplay.mp4
 
       - name: Generate and upload
         env:
