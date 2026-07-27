@@ -27,6 +27,25 @@ from a GitHub Release.
 
 ---
 
+## ⚠️ How to make changes to this project
+
+**Push directly via the GitHub MCP** (`mcp__github__push_files` /
+`create_or_update_file`). Do NOT generate `.patch` files for the user to
+apply with `git am` — we did that for most of this project's history and it
+was slow and error-prone (browsers strip dashes from patch filenames, patches
+get lost in Downloads, stuck rebases, etc.). Direct push works and takes
+seconds.
+
+The only things that still need the user's local machine:
+- Anything that modifies `stories_cache.json` (too large to round-trip well)
+- Binary uploads over a few MB
+- Anything requiring a browser login (OAuth flows, dashboards)
+
+The user's local clone is at `C:\Users\Henry\vibecoding-projects` (folder name
+still says vibecoding — the repo was renamed, the folder wasn't).
+
+---
+
 ## What's running right now (current production)
 
 - **Cadence:** 2 cron triggers per day (`14 UTC` and `22 UTC`). Each
@@ -34,7 +53,7 @@ from a GitHub Release.
   random **0–180 minutes** before kicking off the render. Net rate ≈ 0.76
   posts/day = ~3 posts every 4 days. Post times are never the same twice.
 - **Voice engine:** Piper TTS (open source, MIT, ~60 MB voices, CPU-only).
-  Default rotation pool of 4 voices; `en_US-ryan-high` is the horror voice.
+  Default rotation pool of 4 voices; `en_US-ryan-high` is the deepest.
   Edge TTS is still wired up as a fallback — flip `TTS_ENGINE: piper` →
   `edge` in the workflow to swap.
 - **Word timings:** Piper doesn't emit word boundaries, so faster-whisper
@@ -72,15 +91,15 @@ Set at https://github.com/hzisow/Youtube-Automation/settings/secrets/actions
 
 | Secret | Purpose |
 |---|---|
-| `UPLOADPOST_API_KEY` | JWT from upload-post.com dashboard. Long-lived (expires year 2125). |
+| `UPLOADPOST_API_KEY` | JWT from upload-post.com dashboard. Long-lived (exp year 2125). |
 | `UPLOADPOST_USER` | The user label assigned in upload-post.com. Current value: `tiktokuploader`. |
 | `GAMEPLAY_URL` | **Fallback only.** Direct .mp4 link, used if the `assets-v1` release has no .mp4 assets. Safe to leave set. |
 
 ### Optional / not currently used
 - `REDDIT_CLIENT_ID` — installed-app client ID. Only used by local
-  `refresh_stories.py` for scraping new stories. Reddit's anti-scraping
-  has been spotty on residential IPs; we worked around it via
-  `seed_horror_stories.py`.
+  `refresh_stories.py`. Reddit's anti-scraping blocks residential IPs; we
+  worked around it with `seed_horror_stories.py`. Attempts to register a
+  new Reddit app also failed.
 - `PEXELS_KEY` — was for the abandoned "explainer" video style.
 - `TTS_VOICE` / `TTS_VOICES` — override Edge TTS voice/pool.
 - `PIPER_VOICE` / `PIPER_VOICES` — override Piper voice/pool.
@@ -90,6 +109,45 @@ Set at https://github.com/hzisow/Youtube-Automation/settings/secrets/actions
 — belonged to the direct YouTube + TikTok OAuth path which we replaced with
 upload-post.com. The Python modules (`upload.py`, `tiktok_upload.py`) still
 live in the repo as archived reference but aren't called.
+
+---
+
+## upload-post.com API reference
+
+Discovered by reading the official npm client's source
+(`github.com/Upload-Post/upload-post-npm`, `index.js`). Implemented in
+`brainrot-pipeline/pipeline/uploadpost.py`.
+
+```
+POST https://api.upload-post.com/api/upload
+Authorization: Apikey <JWT>          # NOT "Bearer"
+X-Upload-Post-Source: <any string>
+Content-Type: multipart/form-data
+```
+
+Form fields we send:
+
+| Field | Notes |
+|---|---|
+| `video` | the .mp4 file (or an https URL) |
+| `user` | the profile label, e.g. `tiktokuploader` |
+| `title` | default title for all platforms |
+| `description` | default description |
+| `platform[]` | **repeated once per platform** — `tiktok`, `youtube` |
+| `youtube_title`, `tiktok_title` | per-platform title overrides |
+| `youtube_description`, `tiktok_description` | per-platform description overrides |
+| `youtube_privacy` | `public` / `unlisted` / `private` |
+| `tiktok_privacy_level` | `SELF_ONLY` / `MUTUAL_FOLLOW_FRIENDS` / `PUBLIC_TO_EVERYONE` |
+
+Other endpoints on the same base (not used yet): `/upload_photos`,
+`/upload_text`, `/upload_document`, `/uploadposts/status?request_id=...`,
+`/uploadposts/history`, `/uploadposts/schedule`. Supports scheduling via
+`scheduled_date` + `timezone`, and `async_upload`.
+
+The API key is a JWT tied to `hzisow@gmail.com` with `exp` in year 2125 —
+treat it like a password. It was pasted in chat during setup; rotating it
+in the upload-post dashboard is cheap defensive hygiene if that ever
+matters.
 
 ---
 
@@ -132,6 +190,28 @@ preferred (16:9 works, gets center-cropped). Avoid Subway Surfers — it's
 so oversaturated it now reads as "low-effort AI" to viewers. Better:
 Trackmania, GTA stunts, Minecraft parkour, satisfying mechanical loops,
 marble runs, slime/paint mixing.
+
+---
+
+## What multi-part stories share
+
+A story longer than 2 minutes gets split into Part 1 / Part 2 / Part 3
+(`pipeline/split.py`, 8s recap overlap, max 3 parts). These are
+deliberately kept visually and sonically consistent so they read as one
+series:
+
+| Property | Shared across parts? | Seeded on |
+|---|---|---|
+| Background clip file | Yes | one download per workflow run |
+| Background start frame | Yes | `hash(story["id"])` |
+| Narrator voice | Yes | `hash(story["id"])` |
+| Color grade | Yes | subreddit |
+| Music bed | Yes | subreddit / mood |
+| Caption color | Yes | subreddit tone |
+| Title card text | No — shows "(Part N)" | — |
+
+If you ever want something to vary per part instead, seed it on `slug`
+(which is `<base>-p1`, `<base>-p2`, …) rather than `story["id"]`.
 
 ---
 
@@ -184,11 +264,11 @@ brainrot-pipeline/
 
 docs/                        # GitHub Pages -> redditstories.henryzisow.com
   CNAME                      # redditstories.henryzisow.com
-  index.html                 # landing page (also TikTok OAuth callback)
+  index.html                 # landing page (was also TikTok OAuth callback)
   privacy.html
   terms.html
   app-icon.png               # 1024x1024 brand icon
-  google[hash].html          # Search Console verification -- KEEP
+  google[hash].html          # Search Console verification -- KEEP THIS ONE
   tiktok[hash].txt           # TikTok URL-prefix verification
 
 STATUS.md                    # this file
@@ -196,6 +276,51 @@ STATUS.md                    # this file
 
 The repo root used to also contain `agency-dashboard/` files; those were
 moved to `hzisow/agency-dashboard` and cleaned out of this repo 2026-06-15.
+A `spaced-repetition` branch (the "Recall" study PWA) was likewise split
+out to `hzisow/study-calendar` and its branch deleted here.
+
+---
+
+## The docs/ folder — do we still need it?
+
+Mostly no, but leave it. Since uploads moved to upload-post.com, nothing
+in `docs/` is load-bearing for the pipeline. Breakdown:
+
+| File | Still doing work? |
+|---|---|
+| `google[hash].html` | **Yes** — keeps the Search Console property verified for `redditstories.henryzisow.com`. Keep it. |
+| `CNAME` | Yes, if you want the subdomain to keep resolving |
+| `index.html` / `privacy.html` / `terms.html` | No — were OAuth consent-screen requirements |
+| `app-icon.png` | No — was the OAuth consent screen icon |
+| `tiktok[hash].txt` | No — TikTok domain verification, unused now |
+
+Cost of keeping: $0 (GitHub Pages serves static files free). Cost of
+deleting: the Google Cloud OAuth client still exists and was approved at
+Production status partly on the basis of a working homepage. If Google
+ever re-reviews and the homepage 404s, verification could be pulled.
+Not worth the risk for zero savings.
+
+`tiktok-developers-site-verification=MsmZGozJ1k8z5soTVwYCtUi8SJBWhpbP` is
+a **domain-ownership token, not an API key.** It's public by design and
+harmless. Don't confuse it with `UPLOADPOST_API_KEY`.
+
+---
+
+## Google Cloud OAuth client (dormant but intact)
+
+Not used by the pipeline anymore, but it still exists and is fully set up
+in case we ever want to go back to direct YouTube uploads:
+
+- Client ID: `688194610787-n5knm70tdilc2j7bfnl0btq29lvgpfmp.apps.googleusercontent.com`
+- **Publishing status: In production** (checked 2026-05-31)
+- User type: External, 1 / 100 user cap
+- Branding: verified
+
+**Why this matters:** "In production" is what makes refresh tokens
+persist indefinitely. In "Testing" they expire every 7 days, which is
+what forced the old weekly re-auth routine. Google confirmed by email
+that personal-use apps under 100 users don't need formal verification.
+So if you ever revert to direct YouTube uploads, tokens will not expire.
 
 ---
 
@@ -220,6 +345,8 @@ Both engines expose the same surface (`DEFAULT_VOICE`, `VOICE_POOL`,
   `en-US-ChristopherNeural`, `en-US-RogerNeural`.
 - Horror voice (forced for scary subs): `en-US-RogerNeural`.
 - Edge TTS emits per-word boundaries natively — skips the Whisper step.
+- The "Multilingual" variants sound noticeably more natural than the
+  plain ones — prefer them if adding more.
 
 ### Word timings
 - Edge returns word timings → used directly.
@@ -229,27 +356,6 @@ Both engines expose the same surface (`DEFAULT_VOICE`, `VOICE_POOL`,
 ### How to swap engines
 Edit `.github/workflows/daily-brainrot.yml`, change the `TTS_ENGINE` env at
 the top of the file. No code changes needed.
-
----
-
-## What multi-part stories share
-
-A story longer than 2 minutes gets split into Part 1 / Part 2 / Part 3
-(`pipeline/split.py`, 8s recap overlap). These are deliberately kept
-visually and sonically consistent so they read as one series:
-
-| Property | Shared across parts? | Seeded on |
-|---|---|---|
-| Background clip file | Yes | one download per workflow run |
-| Background start frame | Yes | `hash(story["id"])` |
-| Narrator voice | Yes | `hash(story["id"])` |
-| Color grade | Yes | subreddit |
-| Music bed | Yes | subreddit / mood |
-| Title card text | No — shows "(Part N)" | — |
-| Caption color | Yes | subreddit tone |
-
-If you ever want something to vary per part instead, seed it on `slug`
-(which is `<base>-p1`, `<base>-p2`, …) rather than `story["id"]`.
 
 ---
 
@@ -288,8 +394,11 @@ treatment in `auto.py`:
   `story["subreddit"]` lower-cased against `SCARY_SUBS`.
 
 `seed_horror_stories.py` contains 12 original nosleep-style stories
-(IDs `seed-h-001` … `seed-h-012`). Run it locally and commit the updated
-`stories_cache.json` to get them into rotation — see TODOs.
+(IDs `seed-h-001` … `seed-h-012`, ~875 chars each so they clear the 55s
+narration floor). Run it locally and commit the updated
+`stories_cache.json` to get them into rotation — see TODOs. With 12
+horror out of ~6,580 total and ~3 posts per 4 days, horror will fire
+rarely; add more entries to the script if you want it more often.
 
 ---
 
@@ -305,7 +414,8 @@ to the bottom as decisions are made. Don't remove old entries.
   `hzisow/study-calendar`).
 - **Upload mechanism:** dropped direct YouTube Data API + TikTok Content
   Posting API in favor of upload-post.com. Eliminates 4 OAuth secrets,
-  weekly Google token refresh dance, and TikTok production-audit need.
+  the weekly Google token refresh dance, and the TikTok production-audit
+  requirement.
 - **Cadence:** cut from 5 posts/day fixed times → ~3 posts per 4 days at
   randomized times. Reasoning: research shows post-Sept-2025 YouTube
   Shorts algorithm rewards quality + variety over volume, and the
@@ -357,11 +467,16 @@ new reason.
 - **Trending TikTok / YouTube sounds via API** — impossible. Both
   platforms only allow sound-catalog selection through their own UI;
   licensing doesn't permit third-party redistribution. No tool exists
-  (and won't) that does this legally and automatedly.
+  (and won't) that does this legally and automatedly. upload-post has a
+  `tiktokAutoAddMusic` flag but it's photo-carousel only.
 - **MisoTTS** — 16 GB model, needs 24 GB VRAM. Cannot fit on a GitHub
   Actions free runner (7 GB RAM, no GPU, ~14 GB disk).
 - **Math channel rebrand** ("MathBytes") — researched, generated banner
-  + profile pic, then user chose to stay on Reddit format.
+  + profile pic via `make_branding.py`, then user chose to stay on the
+  Reddit format.
+- **Patch-file workflow** — generating `.patch` files for the user to
+  `git am`. Replaced by direct GitHub MCP pushes. See the section at the
+  top of this doc.
 
 ---
 
@@ -370,6 +485,10 @@ new reason.
 - [ ] **Upload background clips** to the `assets-v1` release so rotation
       actually has something to rotate between. Until then every run
       picks the single existing clip (or the `GAMEPLAY_URL` fallback).
+- [ ] **Verify the clip-rotation step works.** The jq/GitHub-API query in
+      the workflow has never actually executed — it runs for the first
+      time on the next run. If it fails, the fallback should catch it,
+      but check the "Fetch a random gameplay clip" step log.
 - [ ] **TikTok daily-limit problem.** Videos keep landing in the TikTok
       inbox as drafts instead of publishing. Next step: email upload-post
       support and ask whether a plan tier / setting guarantees direct
@@ -411,7 +530,8 @@ env:
 ### Add more voices to the rotation pool
 - Piper: edit `_VOICE_HF_PATHS` + `_DEFAULT_POOL` in `pipeline/piper_tts.py`.
 - Edge: edit `_EDGE_DEFAULT_POOL` in `pipeline/tts.py`. Use
-  `python preview_voices.py --list` to see all available.
+  `python preview_voices.py --list` to see all available, or
+  `python preview_voices.py` to render MP3 samples of 16 curated ones.
 
 ### Add more horror stories
 Edit the `STORIES` list in `seed_horror_stories.py`, re-run the script,
@@ -450,6 +570,11 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
   dies before that step, the same story might re-render next run.
 - **Clip release is public:** `browser_download_url` works without auth.
   The API call uses `${{ github.token }}` only to avoid rate limits.
+- **`hash()` is not stable across Python processes** for str inputs when
+  `PYTHONHASHSEED` is randomized (the default). So voice and bg_offset
+  are stable *within* a run but may differ between runs for the same
+  story. That's fine here — each story is only rendered once. Don't rely
+  on `hash()` for anything that must reproduce across runs.
 
 ---
 
@@ -462,16 +587,26 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
   code, and it can't be patched away from here. YouTube is unaffected.
 - **YouTube algorithm 2026:** has publicly committed (Neal Mohan's Jan
   2026 letter) to suppress "AI slop" patterns — templated AI Reddit
-  shorts are exactly that. We've layered countermeasures (Piper voice
+  shorts are exactly that. The July 15 2025 "inauthentic content" policy
+  explicitly names "channels that upload narrative stories with only
+  superficial differences." We've layered countermeasures (Piper voice
   rotation, randomized cadence, clip rotation + seek offset, color
   grading, horror sub-treatment) but the niche is headwind, not tailwind.
+- **Shorts freshness decay:** post-Sept-2025 the Shorts algorithm mostly
+  only pushes videos in their first ~28–30 days. Flooding doesn't extend
+  reach, it splits your own impression budget. That's the reasoning
+  behind the cadence cut.
 - **TikTok C2PA detection:** auto-flags AI-generated audio. Disclosing
   has 5–8% reach impact; failing to disclose carries removal risk.
+  Disclosure protects you; hiding the AI is what hurts.
 - **DST shifts:** US Eastern moves off EDT in November. ET-aligned cron
   comments will be off by an hour until adjusted.
 - **Manual sound-pick advantage on TikTok:** giving up automation here
   was deliberate. Trending TikTok sounds boost reach a lot but require
   daily manual touch we explicitly don't want.
+- **Realistic expectation:** most videos get very few views. The format
+  is saturated and actively downranked. Code changes reduce the obvious
+  "AI slop" fingerprints but don't reverse the platform-level headwind.
 
 ---
 
@@ -479,11 +614,14 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 
 Newest first. Update this section every time you make a change.
 
+- **2026-06-19** — STATUS.md expanded with the upload-post API reference,
+  the docs/ folder audit, the dormant Google OAuth client details, the
+  `hash()` stability caveat, and a note at the top telling future
+  sessions to push via the GitHub MCP rather than patch files.
 - **2026-06-19** — Multi-part stories now share one background start
   frame. The `bg_offset` seed moved from `slug` (unique per part) to
   `story["id"]` (shared), so Part 1 / Part 2 open on the same frame and
-  read as a series. Commit `2fa8b80`. Added a "What multi-part stories
-  share" table to this doc.
+  read as a series. Commit `2fa8b80`.
 - **2026-06-19** — Background clips now rotate automatically. Workflow
   queries the `assets-v1` release, filters `.mp4` assets with jq, and
   picks one at random per run (falls back to `GAMEPLAY_URL` if empty).
@@ -541,3 +679,4 @@ Newest first. Update this section every time you make a change.
 | Cron stopped firing entirely | Repo inactive 60 days (GitHub disables crons) | Push any tiny commit |
 | Workflow runs but uploads nothing | Dice rolled `should_post=false` | Expected; check the `dice` job log |
 | Want an immediate post | — | Manual `workflow_dispatch` skips dice + sleep |
+| Reddit 403 on `refresh_stories.py` | Reddit blocks residential IPs | Use `seed_*` scripts instead; app registration also fails |
