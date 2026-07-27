@@ -63,9 +63,8 @@ still says vibecoding — the repo was renamed, the folder wasn't).
 - **Uploads:** Both YouTube + TikTok go through https://upload-post.com via
   one API call. No direct Google or TikTok OAuth on our side anymore.
   Plan tier: paid (Henry's), user label: `tiktokuploader`.
-  ⚠️ TikTok frequently rejects direct posting with a "daily active-user
-  limit" and drops the video into the TikTok **inbox as a draft** instead —
-  see "Honest limits" below. YouTube is unaffected.
+  TikTok direct posting was broken for a while (videos landed in the TikTok
+  inbox as drafts) — **resolved 2026-06-19 by emailing upload-post support.**
 - **Background clips:** auto-rotated. Every run queries the GitHub Release
   tagged **`assets-v1`**, lists its `.mp4` assets, and picks one at random.
   Additionally each *story* seeks a different offset into the clip, so two
@@ -148,6 +147,11 @@ The API key is a JWT tied to `hzisow@gmail.com` with `exp` in year 2125 —
 treat it like a password. It was pasted in chat during setup; rotating it
 in the upload-post dashboard is cheap defensive hygiene if that ever
 matters.
+
+**Their support is responsive.** The TikTok daily-limit problem (videos
+going to the inbox as drafts instead of publishing) was resolved by
+emailing them, 2026-06-19. Worth contacting them first for any
+platform-delivery weirdness rather than trying to work around it in code.
 
 ---
 
@@ -440,6 +444,9 @@ to the bottom as decisions are made. Don't remove old entries.
 - **Multi-part consistency:** parts of one story deliberately share clip,
   start frame, voice, grade and music so they read as a series. Anything
   that should vary per part must be seeded on `slug`, not `story["id"]`.
+- **Platform-delivery problems → contact upload-post first.** The TikTok
+  daily-limit issue looked unfixable from our side and was solved by
+  emailing their support. Don't build workarounds before asking them.
 
 ---
 
@@ -488,12 +495,8 @@ new reason.
 - [ ] **Verify the clip-rotation step works.** The jq/GitHub-API query in
       the workflow has never actually executed — it runs for the first
       time on the next run. If it fails, the fallback should catch it,
-      but check the "Fetch a random gameplay clip" step log.
-- [ ] **TikTok daily-limit problem.** Videos keep landing in the TikTok
-      inbox as drafts instead of publishing. Next step: email upload-post
-      support and ask whether a plan tier / setting guarantees direct
-      TikTok posting. If not, decide between (a) manual finish in the
-      TikTok app, or (b) route YouTube-only through upload-post.
+      but check the "Fetch a random gameplay clip" step log. Want to see:
+      `Found N clip(s) in the release. This run uses: <name>.mp4`
 - [ ] Watch a Piper-engine cron run end-to-end. If it fails, the one-line
       revert is `TTS_ENGINE: piper` → `edge` in the workflow.
 - [ ] (Optional) Run `python seed_horror_stories.py` locally and push the
@@ -503,6 +506,14 @@ new reason.
       (needs `PIXABAY_KEY`). Until then, non-horror videos have no music.
 - [ ] (Wait-and-see) Watch the cadence change for ~1 week. If views are
       lower not higher than the old 5/day cadence, revisit.
+
+### Recently closed
+- [x] **TikTok daily-limit problem** — videos were landing in the TikTok
+      inbox as drafts instead of publishing. **Fixed 2026-06-19** by
+      emailing upload-post support. Direct TikTok posting works again.
+- [x] **Google OAuth verification** — resolved. Client is in Production
+      status, tokens persist indefinitely. Moot now that uploads go
+      through upload-post, but the client is intact if we ever revert.
 
 ---
 
@@ -552,6 +563,7 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 ### Monitor uploads
 - GitHub Actions: https://github.com/hzisow/Youtube-Automation/actions
 - upload-post.com dashboard for delivery status to each platform.
+- Their support is responsive — email them for platform-delivery issues.
 
 ---
 
@@ -580,11 +592,6 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 
 ## Honest limits
 
-- **TikTok daily active-user limit.** TikTok regularly refuses direct
-  posting from upload-post and drops the video into the TikTok inbox as
-  a draft, emailing "Action needed: your TikTok video is waiting in your
-  inbox." This is a TikTok-side throttle on the app, not a bug in our
-  code, and it can't be patched away from here. YouTube is unaffected.
 - **YouTube algorithm 2026:** has publicly committed (Neal Mohan's Jan
   2026 letter) to suppress "AI slop" patterns — templated AI Reddit
   shorts are exactly that. The July 15 2025 "inauthentic content" policy
@@ -614,6 +621,9 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 
 Newest first. Update this section every time you make a change.
 
+- **2026-06-19** — TikTok direct posting **fixed** via upload-post
+  support after emailing them. Videos no longer land in the TikTok inbox
+  as drafts. Moved out of Honest limits and into Recently closed.
 - **2026-06-19** — STATUS.md expanded with the upload-post API reference,
   the docs/ folder audit, the dormant Google OAuth client details, the
   `hash()` stability caveat, and a note at the top telling future
@@ -632,7 +642,7 @@ Newest first. Update this section every time you make a change.
   but the upload call logged nothing on success OR entry, so the logs
   were silent. Added request/response logging around the upload-post
   call. Commit `d66af67`. Root cause turned out to be TikTok's daily
-  active-user limit pushing videos to the inbox as drafts.
+  active-user limit pushing videos to the inbox as drafts (since fixed).
 - **2026-06-15** — Rewrote STATUS.md as a comprehensive single source of
   truth designed to survive chat compaction. Commit `d5b85ce`.
 - **2026-06-15** — Removed leftover agency-dashboard files from main
@@ -666,7 +676,7 @@ Newest first. Update this section every time you make a change.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| TikTok video in inbox, not posted | TikTok daily active-user limit | Finish in the TikTok app, or contact upload-post support |
+| TikTok video in inbox, not posted | TikTok daily active-user limit | Was fixed by upload-post support 2026-06-19; email them if it recurs |
 | "No .mp4 assets found in release" in the log | `assets-v1` release has no video assets | Upload clips to the release, or set `GAMEPLAY_URL` |
 | Every video has the same background | Only one `.mp4` in the release | Upload more clips |
 | Part 1 and Part 2 look different | Shouldn't happen — offset is story-seeded | Check `_make_video` still uses `story["id"]` |
