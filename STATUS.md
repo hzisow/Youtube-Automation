@@ -9,7 +9,8 @@ forgotten.
 - **Owner:** Henry Zisow (`hzisow@gmail.com`)
 - **Repo:** https://github.com/hzisow/Youtube-Automation
 - **Default branch:** `main`
-- **Last reviewed:** 2026-06-19
+- **Last reviewed:** 2026-07-29
+- **Health:** green. Renders and uploads are both working as of 2026-07-29.
 
 ---
 
@@ -40,8 +41,12 @@ The only things that still need the user's local machine:
 - Anything that modifies `stories_cache.json` (too large to round-trip well)
 - Binary uploads over a few MB
 - Anything requiring a browser login (OAuth flows, dashboards)
+- **Anything that has to talk to upload-post.com.** The agent sandbox cannot
+  reach `api.upload-post.com` (connection blocked, curl exit 56). Any status
+  or history query has to be run by the user.
 
-The user's local clone is at `C:\Users\Henry\vibecoding-projects` (folder name
+**The user works across a Windows PC and a Mac.** Don't assume PowerShell.
+Local clone on Windows is `C:\Users\Henry\vibecoding-projects` (folder name
 still says vibecoding — the repo was renamed, the folder wasn't).
 
 ---
@@ -52,6 +57,7 @@ still says vibecoding — the repo was renamed, the folder wasn't).
   independently rolls a **38% dice** to actually post; if yes, sleeps a
   random **0–180 minutes** before kicking off the render. Net rate ≈ 0.76
   posts/day = ~3 posts every 4 days. Post times are never the same twice.
+  **Most runs show `generate: skipped` — that is correct, not a bug.**
 - **Voice engine:** Piper TTS (open source, MIT, ~60 MB voices, CPU-only).
   Default rotation pool of 4 voices; `en_US-ryan-high` is the deepest.
   Edge TTS is still wired up as a fallback — flip `TTS_ENGINE: piper` →
@@ -61,10 +67,8 @@ still says vibecoding — the repo was renamed, the folder wasn't).
   Adds 30–60 sec per video; both Piper voices and Whisper model are cached
   across workflow runs.
 - **Uploads:** Both YouTube + TikTok go through https://upload-post.com via
-  one API call. No direct Google or TikTok OAuth on our side anymore.
-  Plan tier: paid (Henry's), user label: `tiktokuploader`.
-  TikTok direct posting was broken for a while (videos landed in the TikTok
-  inbox as drafts) — **resolved 2026-06-19 by emailing upload-post support.**
+  one API call, then we poll for the async result. Confirmed working
+  2026-07-29. Plan tier: paid (Henry's), user label: `tiktokuploader`.
 - **Background clips:** auto-rotated. Every run queries the GitHub Release
   tagged **`assets-v1`**, lists its `.mp4` assets, and picks one at random.
   Additionally each *story* seeks a different offset into the clip, so two
@@ -138,10 +142,43 @@ Form fields we send:
 | `youtube_privacy` | `public` / `unlisted` / `private` |
 | `tiktok_privacy_level` | `SELF_ONLY` / `MUTUAL_FOLLOW_FRIENDS` / `PUBLIC_TO_EVERYONE` |
 
-Other endpoints on the same base (not used yet): `/upload_photos`,
-`/upload_text`, `/upload_document`, `/uploadposts/status?request_id=...`,
-`/uploadposts/history`, `/uploadposts/schedule`. Supports scheduling via
-`scheduled_date` + `timezone`, and `async_upload`.
+### ⚠️ 200 means ACCEPTED, not POSTED
+
+Our renders are ~40 MB, which is big enough that upload-post won't finish
+the work inside the request. It queues the file and returns immediately:
+
+```json
+{"success": true, "request_id": "3a7e4023...", "job_id": "ac943622...",
+ "total_platforms": 2,
+ "message": "Upload initiated successfully in background. Your synchronous
+  request was taking too long and has been durably handed off to the upload
+  worker. Check its status with GET /api/uploadposts/status?request_id=..."}
+```
+
+This bit us once: the logs said `upload-post OK` on every run and we had no
+idea whether anything actually posted. `auto.py` now calls
+`uploadpost.wait_for_result(request_id)` after each upload and prints the
+settled state, so a delivery failure shows up as
+`!! upload-post FINAL=FAILED ... -- video did NOT post`.
+
+### Status / history endpoints
+
+```
+GET /api/uploadposts/status?request_id=<id>
+GET /api/uploadposts/history
+```
+
+The sandbox can't reach these — the user has to run them. macOS/Linux:
+
+```bash
+KEY='<UPLOADPOST_API_KEY>'
+curl -s -H "Authorization: Apikey $KEY" \
+  "https://api.upload-post.com/api/uploadposts/history" | python3 -m json.tool
+```
+
+Also on the same base but unused: `/upload_photos`, `/upload_text`,
+`/upload_document`, `/uploadposts/schedule`. Supports scheduling via
+`scheduled_date` + `timezone`, and an `async_upload` flag.
 
 The API key is a JWT tied to `hzisow@gmail.com` with `exp` in year 2125 —
 treat it like a password. It was pasted in chat during setup; rotating it
@@ -258,7 +295,7 @@ brainrot-pipeline/
     descriptions.py          # YouTube/TikTok auto-descriptions + hashtags
     music.py                 # pick royalty-free track from assets/music/<mood>/
     sfx.py                   # ding generator/loader
-    uploadpost.py            # upload-post.com REST client
+    uploadpost.py            # upload-post.com client: upload + async status polling
     # below are kept for reference but not currently used:
     redditpost.py            # scrollable Reddit post renderer (screenshot style)
     scroll.py                # ffmpeg scroll expression builder
@@ -379,6 +416,11 @@ Net effect:
 - Evening window: 6 PM ET trigger → posts 6 PM – 9 PM ET.
 - Some days have 0 posts. Some days have 2. Average evens out.
 
+**Reading the Actions list:** a run showing `generate: skipped` is the dice
+saying no. That's ~62% of runs by design. Observed rate over 2026-07-19..28
+was ~5 renders in 9 days, consistent with the target. If you want more
+volume, raise `THRESH` in the dice step — don't go looking for a bug.
+
 `timeout-minutes: 300` because the random sleep can be up to 3 hours.
 
 ---
@@ -447,6 +489,11 @@ to the bottom as decisions are made. Don't remove old entries.
 - **Platform-delivery problems → contact upload-post first.** The TikTok
   daily-limit issue looked unfixable from our side and was solved by
   emailing their support. Don't build workarounds before asking them.
+- **Log the outcome, not the handoff.** Twice now, a "working" pipeline
+  looked broken purely because the logs didn't say enough — first no
+  upload logging at all, then logging the 200-accepted as if it were a
+  successful post. When something is invisible, add the log line before
+  theorizing about causes.
 
 ---
 
@@ -492,13 +539,16 @@ new reason.
 - [ ] **Upload background clips** to the `assets-v1` release so rotation
       actually has something to rotate between. Until then every run
       picks the single existing clip (or the `GAMEPLAY_URL` fallback).
+      This is the only thing actively limiting variety right now.
 - [ ] **Verify the clip-rotation step works.** The jq/GitHub-API query in
-      the workflow has never actually executed — it runs for the first
-      time on the next run. If it fails, the fallback should catch it,
-      but check the "Fetch a random gameplay clip" step log. Want to see:
+      the workflow hasn't been confirmed in a log yet. Check the
+      "Fetch a random gameplay clip" step. Want to see:
       `Found N clip(s) in the release. This run uses: <name>.mp4`
-- [ ] Watch a Piper-engine cron run end-to-end. If it fails, the one-line
-      revert is `TTS_ENGINE: piper` → `edge` in the workflow.
+- [ ] **Confirm the new status polling looks right** on the next run that
+      renders. Expect `upload-post accepted:` → `status poll N: {...}` →
+      `upload-post FINAL=<state>`. The terminal-status vocabulary in
+      `uploadpost._TERMINAL` was a guess; once real payloads show up in
+      the log, tighten it to match.
 - [ ] (Optional) Run `python seed_horror_stories.py` locally and push the
       resulting `stories_cache.json` so the 12 horror entries land in
       production.
@@ -508,6 +558,11 @@ new reason.
       lower not higher than the old 5/day cadence, revisit.
 
 ### Recently closed
+- [x] **"Videos aren't uploading"** (2026-07-29) — investigated the Actions
+      logs. Nothing was broken: `generate` runs whenever the dice allows,
+      renders succeed, and upload-post accepts the files. The confusion
+      came from (a) ~62% of runs skipping by design and (b) the logs
+      calling an async handoff "OK". User confirmed upload states are fine.
 - [x] **TikTok daily-limit problem** — videos were landing in the TikTok
       inbox as drafts instead of publishing. **Fixed 2026-06-19** by
       emailing upload-post support. Direct TikTok posting works again.
@@ -553,16 +608,17 @@ Edit the `cron:` lines + the dice `THRESH` (currently 38) in the workflow.
 
 ### Refresh Reddit content
 Hard on residential IPs — Reddit blocks. If it works:
-```powershell
-cd $HOME\vibecoding-projects\brainrot-pipeline
-$env:REDDIT_CLIENT_ID = "..."
+```bash
+cd ~/vibecoding-projects/brainrot-pipeline     # or C:\Users\Henry\... on Windows
+export REDDIT_CLIENT_ID="..."                  # $env:REDDIT_CLIENT_ID on PowerShell
 python refresh_stories.py
-git add stories_cache.json; git commit -m "refresh stories"; git push
+git add stories_cache.json && git commit -m "refresh stories" && git push
 ```
 
 ### Monitor uploads
 - GitHub Actions: https://github.com/hzisow/Youtube-Automation/actions
 - upload-post.com dashboard for delivery status to each platform.
+- Or `GET /api/uploadposts/history` — see the API reference section.
 - Their support is responsive — email them for platform-delivery issues.
 
 ---
@@ -574,12 +630,16 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
   are feasible — rules out anything >10 GB.
 - **upload-post.com:** the cron's single point of failure for uploads.
   If they go down, both platforms miss that day. Tolerable.
+- **The agent sandbox cannot reach api.upload-post.com** (curl exit 56).
+  Any diagnostic against their API has to be run by the user locally.
 - **Cache lifetime:** `actions/cache@v4` keys with `tts-models-v1`.
   Bump to `-v2` to force re-download of Piper/Whisper models.
 - **stories_cache.json is committed:** ~6,570 entries, several MB. Git
   history grows but acceptable.
 - **used.json is auto-committed** by the workflow's final step. If a run
-  dies before that step, the same story might re-render next run.
+  dies before that step, the same story might re-render next run. A side
+  benefit: the commit history of used.json is a reliable record of which
+  runs actually rendered something.
 - **Clip release is public:** `browser_download_url` works without auth.
   The API call uses `${{ github.token }}` only to avoid rate limits.
 - **`hash()` is not stable across Python processes** for str inputs when
@@ -621,13 +681,16 @@ git add stories_cache.json; git commit -m "refresh stories"; git push
 
 Newest first. Update this section every time you make a change.
 
-- **2026-06-19** — TikTok direct posting **fixed** via upload-post
-  support after emailing them. Videos no longer land in the TikTok inbox
-  as drafts. Moved out of Honest limits and into Recently closed.
-- **2026-06-19** — STATUS.md expanded with the upload-post API reference,
-  the docs/ folder audit, the dormant Google OAuth client details, the
-  `hash()` stability caveat, and a note at the top telling future
-  sessions to push via the GitHub MCP rather than patch files.
+- **2026-07-29** — Upload result is now verified, not assumed. Added
+  `upload_status()`, `terminal_status()`, `is_failure()` and
+  `wait_for_result()` to `pipeline/uploadpost.py` (commit `8e5cd1a`) and
+  wired polling into `auto.py` with `--upload-timeout` / `--no-wait-upload`
+  (commit `ded0bd2`). Prompted by a log audit: every run said
+  "upload-post OK" but that 200 only meant the file was queued.
+- **2026-07-29** — Audited the Actions logs after "videos aren't
+  uploading". Conclusion: nothing broken. `generate` skips ~62% of runs
+  by design; when it runs it renders and uploads fine. User confirmed
+  upload states are healthy.
 - **2026-06-19** — Multi-part stories now share one background start
   frame. The `bg_offset` seed moved from `slug` (unique per part) to
   `story["id"]` (shared), so Part 1 / Part 2 open on the same frame and
@@ -636,25 +699,22 @@ Newest first. Update this section every time you make a change.
   queries the `assets-v1` release, filters `.mp4` assets with jq, and
   picks one at random per run (falls back to `GAMEPLAY_URL` if empty).
   Commit `523e218`. Plus `video.render()` gained a `bg_offset` param and
-  `auto.py` wires it up — commit `fa397a6`. This restored a change
-  requested earlier whose patch never landed.
-- **2026-06-19** — Diagnosed "not uploading anymore": renders were fine,
-  but the upload call logged nothing on success OR entry, so the logs
-  were silent. Added request/response logging around the upload-post
-  call. Commit `d66af67`. Root cause turned out to be TikTok's daily
-  active-user limit pushing videos to the inbox as drafts (since fixed).
+  `auto.py` wires it up — commit `fa397a6`.
+- **2026-06-19** — TikTok direct posting fixed via upload-post support
+  after emailing them. Videos no longer land in the TikTok inbox as drafts.
+- **2026-06-19** — Added request/response logging around the upload-post
+  call. Commit `d66af67`.
 - **2026-06-15** — Rewrote STATUS.md as a comprehensive single source of
   truth designed to survive chat compaction. Commit `d5b85ce`.
-- **2026-06-15** — Removed leftover agency-dashboard files from main
-  (Agency-Dashboard.html, leads-import.json, newton_leads.csv, and the
-  agency-dashboard/ directory). Still safely in `hzisow/agency-dashboard`.
+- **2026-06-15** — Removed leftover agency-dashboard files from main.
+  Still safely in `hzisow/agency-dashboard`.
 - **2026-06-15** — Added Piper TTS as a swappable open-source engine,
   set as default. Commit `5a11ac4`. Edge stays as fallback.
 - **2026-06-15** — Changed cadence from 5 fixed-time crons/day to
   2 trigger windows + 38% dice + 0–180 min random sleep ≈ 3 posts per
   4 days at random times. Commit `50d98ec`.
 - **2026-06-15** — Started pushing code changes directly via the GitHub
-  MCP instead of sending patch files for manual `git am`. Much faster.
+  MCP instead of sending patch files for manual `git am`.
 - **~2026-06-14** — Added 12 seeded horror stories
   (`seed_horror_stories.py`) since Reddit was blocking scraping.
 - **~2026-06-14** — Wired horror story treatment: deep voice +
@@ -665,8 +725,7 @@ Newest first. Update this section every time you make a change.
 - **~2026-06-14** — Color grading: cinematic (default) + horror preset.
 - **~2026-06-14** — Added `r/nosleep` + `r/letsnotmeet` to subreddit pool.
 - **~2026-06-12** — Swapped to upload-post.com for both YouTube +
-  TikTok. Dropped 4 OAuth secrets, added 2. Killed the weekly YouTube
-  re-auth dance and the TikTok production-audit requirement.
+  TikTok. Dropped 4 OAuth secrets, added 2.
 - **~2026-06-10** — Repo renamed. Default branch renamed to `main`.
   Other projects moved to their own repos.
 
@@ -676,6 +735,8 @@ Newest first. Update this section every time you make a change.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| Most runs show `generate: skipped` | The 38% dice said no | Expected — ~62% of runs. Raise `THRESH` for more volume |
+| Log says `upload-post accepted` but nothing appears | Async handoff still in flight, or platform-side failure | Look for the `FINAL=` line; query `/uploadposts/status` or the dashboard |
 | TikTok video in inbox, not posted | TikTok daily active-user limit | Was fixed by upload-post support 2026-06-19; email them if it recurs |
 | "No .mp4 assets found in release" in the log | `assets-v1` release has no video assets | Upload clips to the release, or set `GAMEPLAY_URL` |
 | Every video has the same background | Only one `.mp4` in the release | Upload more clips |
@@ -687,6 +748,5 @@ Newest first. Update this section every time you make a change.
 | Wrong account on YouTube/TikTok | `UPLOADPOST_USER` mismatch | Verify the label spelling exactly |
 | Captions misaligned with audio | Whisper transcription drifted | Try the next render |
 | Cron stopped firing entirely | Repo inactive 60 days (GitHub disables crons) | Push any tiny commit |
-| Workflow runs but uploads nothing | Dice rolled `should_post=false` | Expected; check the `dice` job log |
 | Want an immediate post | — | Manual `workflow_dispatch` skips dice + sleep |
 | Reddit 403 on `refresh_stories.py` | Reddit blocks residential IPs | Use `seed_*` scripts instead; app registration also fails |
