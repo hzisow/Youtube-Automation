@@ -201,6 +201,13 @@ def main():
     p.add_argument("--tiktok-privacy", default="SELF_ONLY",
                    choices=["SELF_ONLY", "MUTUAL_FOLLOW_FRIENDS", "PUBLIC_TO_EVERYONE"],
                    help="Direct-post visibility (un-audited apps are forced to SELF_ONLY).")
+    p.add_argument("--upload-timeout", type=float, default=300.0,
+                   help="Seconds to poll upload-post for the final result of an "
+                        "async upload before giving up on the answer (the upload "
+                        "itself keeps going regardless).")
+    p.add_argument("--no-wait-upload", action="store_true",
+                   help="Don't poll for the async upload result. Faster runs, "
+                        "but delivery failures become invisible again.")
     args = p.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -343,7 +350,27 @@ def main():
                         youtube_privacy=args.privacy,
                         tiktok_privacy=tt_priv,
                     )
-                    print(f"  upload-post OK: {result}")
+                    # A 200 here means ACCEPTED, not POSTED. For files big
+                    # enough to blow the sync timeout, upload-post queues the
+                    # work and hands back a request_id -- so poll for the real
+                    # outcome instead of declaring victory on the handoff.
+                    print(f"  upload-post accepted: {result}")
+                    req_id = (result or {}).get("request_id")
+                    if req_id and not args.no_wait_upload:
+                        print(f"  waiting for async result (request_id={req_id})...")
+                        final = publisher.wait_for_result(
+                            req_id, timeout=args.upload_timeout)
+                        state = publisher.terminal_status(final)
+                        if publisher.is_failure(state):
+                            print(f"  !! upload-post FINAL={state.upper()} "
+                                  f"for {req_id} -- video did NOT post")
+                        elif state:
+                            print(f"  upload-post FINAL={state} for {req_id}")
+                        else:
+                            print(f"  upload-post still pending for {req_id}; "
+                                  f"check the dashboard or re-query later")
+                    elif not req_id:
+                        print("  (synchronous upload -- no request_id to poll)")
                 except Exception as e:
                     msg = str(e).lower()
                     print(f"  upload-post FAILED: {type(e).__name__}: {e}")
