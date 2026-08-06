@@ -10,8 +10,13 @@ Edge voice config:
   TTS_VOICES  (env, comma-sep) - rotate per story
 
 Piper voice config:
-  PIPER_VOICE   (env, single)
-  PIPER_VOICES  (env, comma-sep)
+  PIPER_VOICE         (env, single)
+  PIPER_VOICES        (env, comma-sep)
+  PIPER_LENGTH_SCALE  (env, float) - speaking rate; LOWER = FASTER.
+                      Default 0.78 (~28% faster than Piper's natural pace).
+
+Speaking rate is per-engine: Edge uses the `rate` percentage below, Piper
+uses PIPER_LENGTH_SCALE. Changing one does not affect the other.
 
 List Edge voices: `python preview_voices.py --list`.
 Piper voices live in pipeline/piper_tts.py:_VOICE_HF_PATHS.

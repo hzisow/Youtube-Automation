@@ -7,6 +7,9 @@ runs so the download is a one-time ~200MB.
 Piper doesn't emit per-word boundaries, so synthesize() returns an empty
 word list. pipeline/captions.timings_ok([]) returns False, which triggers
 the existing Whisper fallback in pipeline/captions.transcribe_words().
+
+Speaking rate is set by PIPER_LENGTH_SCALE (see LENGTH_SCALE below).
+Lower = faster.
 """
 import os
 import subprocess
@@ -35,6 +38,19 @@ _VOICE_HF_PATHS = {
 }
 
 DEFAULT_VOICE = os.environ.get("PIPER_VOICE", "en_US-ryan-high")
+
+# Speaking rate. Piper expresses speed as "phoneme length", so LOWER = FASTER.
+# 1.0 is the model's natural pace, which reads like an audiobook and is far too
+# slow for Shorts. 0.78 is ~28% quicker -- a bit punchier than the old Edge TTS
+# setup, which ran at rate="+18%".
+#
+# This stretches phoneme durations rather than resampling, so pitch is
+# unaffected; the voice doesn't get chipmunky as it speeds up.
+#
+#   0.85  back it off if it feels rushed
+#   0.78  current default
+#   0.72  about as fast as it goes before the voice starts slurring
+LENGTH_SCALE = float(os.environ.get("PIPER_LENGTH_SCALE", "0.78"))
 
 # Per-story rotation pool. Mix of male / female / US / UK.
 _DEFAULT_POOL = [
@@ -82,13 +98,35 @@ def _ensure_voice(voice: str) -> str:
     return onnx_path
 
 
-def synthesize(text: str, out_path: str, voice: str = None, **_kwargs):
+def _synth_wav(pv, text: str, wav_file, scale: float):
+    """Write Piper audio into an open wave file, honouring `scale`.
+
+    The Python API changed shape across versions: modern Piper (>=1.3) takes a
+    SynthesisConfig via synthesize_wav(), older releases took keyword args on
+    synthesize(). Try newest first and degrade.
+    """
+    try:
+        from piper import SynthesisConfig
+        pv.synthesize_wav(text, wav_file,
+                          syn_config=SynthesisConfig(length_scale=scale))
+        return
+    except ImportError:
+        pass
+    pv.synthesize(text, wav_file, length_scale=scale)
+
+
+def synthesize(text: str, out_path: str, voice: str = None,
+               length_scale: float = None, **_kwargs):
     """Render text to MP3 via Piper.
 
+    `length_scale` overrides the module default speaking rate (lower = faster).
+
     Returns [] so the pipeline falls back to Whisper for per-word timings
-    (Piper itself doesn't emit word boundaries).
+    (Piper itself doesn't emit word boundaries). Because those timings are
+    read back off the rendered audio, captions stay in sync at any rate.
     """
     voice = voice or DEFAULT_VOICE
+    scale = LENGTH_SCALE if length_scale is None else length_scale
     onnx_path = _ensure_voice(voice)
 
     # Use the Piper CLI -- it's stable across versions and handles its own
@@ -98,6 +136,7 @@ def synthesize(text: str, out_path: str, voice: str = None, **_kwargs):
         "piper",
         "--model", onnx_path,
         "--output_file", wav_path,
+        "--length_scale", f"{scale:g}",
     ]
     proc = subprocess.run(
         cmd, input=text, capture_output=True, text=True, check=False,
@@ -108,7 +147,7 @@ def synthesize(text: str, out_path: str, voice: str = None, **_kwargs):
             from piper import PiperVoice
             pv = PiperVoice.load(onnx_path)
             with wave.open(wav_path, "wb") as wav_file:
-                pv.synthesize(text, wav_file)
+                _synth_wav(pv, text, wav_file, scale)
         except Exception as e:
             raise RuntimeError(
                 f"piper synthesis failed via CLI ({proc.returncode}) and "

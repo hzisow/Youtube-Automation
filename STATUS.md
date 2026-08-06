@@ -379,6 +379,16 @@ Both engines expose the same surface (`DEFAULT_VOICE`, `VOICE_POOL`,
   and are cached across workflow runs by `actions/cache@v4`.
 - `pipeline/piper_tts.py` uses the `piper` CLI; Python API as fallback.
 - Output: WAV → transcoded to MP3 via ffmpeg to match the rest of the pipeline.
+- **Speaking rate:** `PIPER_LENGTH_SCALE`, set to `0.78` in the workflow env.
+  Piper expresses speed as *phoneme length*, so **lower = faster**; 1.0 is
+  the model's natural (audiobook-slow) pace. 0.78 is ~28% quicker. This
+  stretches durations rather than resampling, so pitch is unaffected — the
+  voice does not get chipmunky as it speeds up. Useful range: 0.85 if it
+  sounds rushed, 0.72 before it starts slurring.
+  This knob is Piper-only; Edge's speed is the separate `rate="+18%"`
+  argument in `pipeline/tts.py`. That mismatch is why narration got
+  noticeably slower when Piper became the default engine — nothing carried
+  the Edge speed-up across.
 
 ### Edge TTS (fallback)
 - Voice pool: `en-US-AndrewMultilingualNeural`, `en-US-BrianMultilingualNeural`,
@@ -599,6 +609,12 @@ env:
   `python preview_voices.py --list` to see all available, or
   `python preview_voices.py` to render MP3 samples of 16 curated ones.
 
+### Change narration speed
+Edit `PIPER_LENGTH_SCALE` in the workflow env block. **Lower = faster**
+(0.72 fast, 0.78 current, 0.85 relaxed, 1.0 natural). Takes effect on the
+next run — no code change needed. On the Edge engine the equivalent is the
+`rate="+18%"` default in `pipeline/tts.py:synthesize()`.
+
 ### Add more horror stories
 Edit the `STORIES` list in `seed_horror_stories.py`, re-run the script,
 commit the updated `stories_cache.json`, push.
@@ -680,6 +696,20 @@ git add stories_cache.json && git commit -m "refresh stories" && git push
 ## Recent changes log
 
 Newest first. Update this section every time you make a change.
+
+- **2026-08-06** — Sped up Piper narration; the user reported the voices
+  sounded slow. Root cause: Piper had been running at `length_scale` 1.0
+  (the model default) ever since it replaced Edge as the default engine,
+  and the Edge path's `rate="+18%"` speed-up was never carried across —
+  the two engines express speed completely differently. Added
+  `PIPER_LENGTH_SCALE`, defaulted to `0.78` (~28% faster), and surfaced it
+  in the workflow env so speed is a one-line change.
+  Also fixed the Piper Python fallback, which called
+  `PiperVoice.synthesize(text, wav_file)` — a signature that no longer
+  exists in Piper ≥1.3, where the second positional arg is a
+  `SynthesisConfig` and the wav-writing variant is `synthesize_wav()`.
+  That path only fires when the `piper` CLI is missing from PATH, so it
+  had never been exercised; it would have raised `TypeError` if it had.
 
 - **2026-07-29** — Upload result is now verified, not assumed. Added
   `upload_status()`, `terminal_status()`, `is_failure()` and

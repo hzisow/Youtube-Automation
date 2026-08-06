@@ -39,6 +39,7 @@ env:
   YOUTUBE_PRIVACY: "public"  # public / unlisted / private
   TTS_ENGINE: "piper"        # piper (open-source, local) or edge (cloud)
   CLIP_RELEASE_TAG: "assets-v1"  # release holding the background .mp4 clips
+  PIPER_LENGTH_SCALE: "0.78" # narration speed, LOWER = FASTER (1.0 = natural)
 
 jobs:
   dice:
